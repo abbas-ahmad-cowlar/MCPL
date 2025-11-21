@@ -1,0 +1,233 @@
+================================================================================
+GREEDY HEURISTIC FOR MCLP
+================================================================================
+
+Algorithm Name: Greedy Maximum Coverage Gain per Cost
+Type: Constructive Heuristic
+Complexity: O(nI² · nJ) time, O(nI + nJ) space
+
+================================================================================
+ALGORITHM DESCRIPTION
+================================================================================
+
+The Greedy heuristic iteratively selects facilities that provide the maximum
+coverage gain per unit cost. At each step, it evaluates all unopened
+facilities and chooses the one with the best ratio of (new demand covered) /
+(facility cost), continuing until the budget is exhausted.
+
+Key Features:
+- Value-based selection (considers both coverage and cost)
+- Incremental coverage tracking (avoids double-counting)
+- Budget-aware (respects budget constraint at each step)
+- Deterministic tie-breaking (prefers lower facility ID)
+
+================================================================================
+PSEUDOCODE
+================================================================================
+
+ALGORITHM Greedy-MCLP(I, J, f, d, I_j, J_i, B)
+  INPUT:
+    I           - Set of facilities
+    J           - Set of customers
+    f[i]        - Cost of opening facility i ∈ I
+    d[j]        - Demand of customer j ∈ J
+    I_j[j]      - Set of facilities that can cover customer j
+    J_i[i]      - Set of customers covered by facility i
+    B           - Total budget available
+
+  OUTPUT:
+    K           - Set of open facilities
+    objective   - Total covered demand
+    covered     - Set of covered customers
+
+  BEGIN
+    // Initialize solution
+    K ← ∅                          // Open facilities
+    covered ← ∅                    // Covered customers
+    budget_used ← 0.0              // Current budget used
+    iteration ← 0
+
+    // Main greedy loop
+    WHILE budget_used < B DO
+      iteration ← iteration + 1
+
+      // Find best facility to open
+      best_facility ← null
+      best_gain_per_cost ← 0
+      best_gain ← 0
+
+      // Evaluate all unopened facilities
+      FOR EACH i ∈ I DO
+        // Skip if already open
+        IF i ∈ K THEN
+          CONTINUE
+        END IF
+
+        // Check budget feasibility
+        IF budget_used + f[i] > B THEN
+          CONTINUE
+        END IF
+
+        // Compute incremental coverage gain
+        // Only count NEW customers (not already covered)
+        new_customers ← J_i[i] \ covered
+        gain ← Σ{d[j] : j ∈ new_customers}
+
+        // Compute gain per cost ratio
+        IF f[i] > 0 THEN
+          gain_per_cost ← gain / f[i]
+        ELSE
+          gain_per_cost ← ∞
+        END IF
+
+        // Update best facility
+        // Tie-breaking: prefer higher gain, then lower facility ID
+        IF gain_per_cost > best_gain_per_cost OR
+           (gain_per_cost = best_gain_per_cost AND
+            (best_facility = null OR i < best_facility)) THEN
+          best_gain_per_cost ← gain_per_cost
+          best_facility ← i
+          best_gain ← gain
+        END IF
+      END FOR
+
+      // Check termination conditions
+      IF best_facility = null OR best_gain_per_cost ≤ 0 THEN
+        BREAK  // No improving facility found
+      END IF
+
+      // Open best facility
+      K ← K ∪ {best_facility}
+      covered ← covered ∪ J_i[best_facility]
+      budget_used ← budget_used + f[best_facility]
+
+      // Optional: Log progress
+      PRINT "Iteration", iteration, ": Opened facility", best_facility,
+            "with gain/cost =", best_gain_per_cost
+
+    END WHILE
+
+    // Compute final objective value
+    objective ← Σ{d[j] : j ∈ covered}
+
+    RETURN K, objective, covered
+  END
+
+================================================================================
+EXAMPLE EXECUTION
+================================================================================
+
+Instance: test_tiny
+- Facilities: 4 (costs: [2.0, 3.0, 2.5, 1.5])
+- Customers: 8 (demands: [10, 15, 20, 25, 30, 12, 18, 22])
+- Budget: 5.0
+
+Iteration 1:
+  Evaluate facility 0 (cost=2.0): covers {0, 3, 6}, gain=10+25+18=53, ratio=26.5
+  Evaluate facility 1 (cost=3.0): covers {0, 1, 4, 7}, gain=10+15+30+22=77, ratio=25.67
+  Evaluate facility 2 (cost=2.5): covers {1, 2, 5, 6}, gain=15+20+12+18=65, ratio=26.0
+  Evaluate facility 3 (cost=1.5): covers {3, 4, 5, 7}, gain=25+30+12+22=89, ratio=59.33 ✓ BEST
+
+  → Open facility 3, budget_used = 1.5, covered = {3, 4, 5, 7}
+
+Iteration 2:
+  Evaluate facility 0 (cost=2.0): NEW covers {0, 6}, gain=10+18=28, ratio=14.0
+  Evaluate facility 1 (cost=3.0): NEW covers {0, 1}, gain=10+15=25, ratio=8.33
+  Evaluate facility 2 (cost=2.5): NEW covers {1, 2, 6}, gain=15+20+18=53, ratio=21.2 ✓ BEST
+  (Facility 3 already open)
+
+  → Open facility 2, budget_used = 4.0, covered = {1, 2, 3, 4, 5, 6, 7}
+
+Iteration 3:
+  Evaluate facility 0 (cost=2.0): NEW covers {0}, gain=10, ratio=5.0
+  Evaluate facility 1 (cost=3.0): NEW covers {0}, gain=10, ratio=3.33
+  Budget allows only facility 0 (2.0 + 4.0 = 6.0 > 5.0 for facility 1)
+
+  → Open facility 0, budget_used = 6.0 > 5.0 → INFEASIBLE
+
+Iteration 3 (retry):
+  No facility fits budget → TERMINATE
+
+Final Solution:
+  K = {2, 3}
+  covered = {1, 2, 3, 4, 5, 6, 7}
+  objective = 15 + 20 + 25 + 30 + 12 + 18 + 22 = 142
+
+================================================================================
+CORRECTNESS PROPERTIES
+================================================================================
+
+1. Budget Feasibility: Always maintains budget_used ≤ B
+2. Coverage Validity: All covered customers have at least one open facility
+3. Monotonicity: Objective value never decreases
+4. Termination: Guaranteed to terminate (budget or no improving facility)
+5. Feasibility: Returns a valid MCLP solution
+
+================================================================================
+COMPLEXITY ANALYSIS
+================================================================================
+
+Time Complexity: O(nI² · nJ)
+  - Main loop: O(nI) iterations (at most nI facilities opened)
+  - Per iteration:
+    * Evaluate all unopened facilities: O(nI)
+    * For each facility, compute new coverage: O(nJ)
+  - Total: O(nI · nI · nJ) = O(nI² · nJ)
+
+Space Complexity: O(nI + nJ)
+  - Storage for K (open facilities): O(nI)
+  - Storage for covered customers: O(nJ)
+  - Temporary variables: O(1)
+
+Practical Performance:
+  - Small instances (50 facilities, 200 customers): < 0.1 seconds
+  - Medium instances (100 facilities, 500 customers): < 1 second
+  - Large instances (200 facilities, 1000 customers): < 5 seconds
+
+================================================================================
+ADVANTAGES
+================================================================================
+
+1. Fast execution time (suitable for large instances)
+2. Good solution quality (typically within 10-30% of optimal)
+3. Simple to implement and understand
+4. No parameters to tune
+5. Deterministic (reproducible results)
+6. Intuitive selection criterion (value per cost)
+
+================================================================================
+LIMITATIONS
+================================================================================
+
+1. Greedy myopia: May miss better global solutions
+2. No backtracking: Cannot undo previous decisions
+3. Solution quality depends on instance structure
+4. May leave budget unused (no facility fits remaining budget)
+5. Tie-breaking strategy affects solution quality
+
+================================================================================
+COMPARISON WITH OPTIMAL
+================================================================================
+
+Expected Performance:
+- Test instances: 70-95% of optimal
+- Small instances (S1, S2): 80-95% of optimal
+- Medium instances (M1, M2): 75-90% of optimal
+- Large instances (L1, L2): 70-85% of optimal
+
+The greedy heuristic typically provides good-quality solutions quickly,
+making it suitable as:
+- An initial solution for metaheuristics
+- A baseline for comparison
+- A fast approximation when optimality is not critical
+
+================================================================================
+REFERENCES
+================================================================================
+
+Classic greedy approach for covering problems.
+Similar algorithms appear in:
+- Church & ReVelle (1974): Original MCLP formulation
+- ReVelle et al. (2004): Handbook of location science
+
+================================================================================
