@@ -86,7 +86,9 @@ python utilities/convert_json_to_mosel.py --input ../data/S1.json --output data/
 
 - **[SETUP.md](docs/SETUP.md)** - Environment setup and installation guide
 - **[DATA_FORMAT.md](docs/DATA_FORMAT.md)** - Mosel data format specification
+- **[EXACT_MODEL_USAGE.md](docs/EXACT_MODEL_USAGE.md)** - Exact model usage guide
 - **[PHASE1_COMPLETION.md](docs/PHASE1_COMPLETION.md)** - Phase 1 completion report
+- **[PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md)** - Phase 2 completion report
 
 ## 🔬 Mathematical Model
 
@@ -115,10 +117,11 @@ Subject to:
 - [x] All 7 instances converted and validated
 - [x] Data format specification documented
 
-### 🚧 Phase 2: Exact Mathematical Model (PENDING)
-- [ ] Compact MIP formulation implementation
-- [ ] Data input routines
-- [ ] Solution output and validation
+### ✅ Phase 2: Exact Mathematical Model (COMPLETED)
+- [x] Compact MIP formulation implementation
+- [x] Data input routines and validation
+- [x] Solution extraction and output
+- [x] Comprehensive usage documentation
 
 ### 🚧 Phase 3: Heuristic Implementations (PENDING)
 - [ ] Greedy heuristic
