@@ -1,0 +1,761 @@
+(!******************************************************
+   Maximum Covering Location Problem (MCLP)
+   Tabu Search Metaheuristic
+
+   Algorithm: Tabu search with advanced mechanisms:
+   1. Tabu list management (recency-based memory)
+   2. Aspiration criterion (override tabu if best found)
+   3. Candidate list restriction (evaluate top moves only)
+   4. Intensification (periodic local search)
+   5. Diversification (shake on stagnation)
+
+   Key Features:
+   - Short-term memory: Tabu tenure for recently moved facilities
+   - Long-term memory: Frequency-based diversification
+   - Strategic oscillation: Allow feasible/infeasible budget
+   - Delta-evaluation: O(nJ) move evaluation efficiency
+
+   Time Complexity: O(max_iter · candidate_size · nJ)
+   Space Complexity: O(nI + nJ)
+
+   Reference: Glover & Laguna (1997) Tabu Search
+              Cordeau, Furini & Ljubić (2016) MCLP
+
+   Author: MCLP Migration Team
+   Date: November 2025
+   Phase: 5 - Tabu Search Metaheuristic
+******************************************************!)
+
+model "MCLP_Tabu_Search"
+
+  !==================================================
+  ! PARAMETERS
+  !==================================================
+
+  parameters
+    DATA_FILE = "data/test_tiny.dat"  ! Default instance
+    MAX_ITERATIONS = 500               ! Maximum TS iterations
+    TABU_TENURE = 10                   ! Tabu list tenure
+    CANDIDATE_SIZE = 20                ! Candidate list size
+    INTENSIFY_FREQ = 50                ! Intensification frequency
+    STAGNATION_LIMIT = 100             ! Diversification trigger
+    INIT_METHOD = "greedy"             ! Initial solution (greedy/random)
+    SEED = 42                          ! Random seed
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
+  end-parameters
+
+  !==================================================
+  ! FORWARD DECLARATIONS
+  !==================================================
+
+  declarations
+    nI, nJ: integer
+    BUDGET: real
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DIMENSIONS
+  !==================================================
+
+  initializations from DATA_FILE
+    nI nJ BUDGET
+  end-initializations
+
+  if VERBOSE >= 1 then
+    writeln("\n", "="*70)
+    writeln("MCLP TABU SEARCH METAHEURISTIC")
+    writeln("="*70)
+    writeln("Instance: ", DATA_FILE)
+    writeln("Facilities: ", nI, ", Customers: ", nJ)
+    writeln("Budget: ", BUDGET)
+    writeln("="*70, "\n")
+  end-if
+
+  !==================================================
+  ! MAIN DECLARATIONS
+  !==================================================
+
+  declarations
+    FACILITIES: set of integer
+    CUSTOMERS: set of integer
+    COST: array(0..nI-1) of real
+    DEMAND: array(0..nJ-1) of real
+    I_j: array(0..nJ-1) of set of integer
+    J_i: array(0..nI-1) of set of integer
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DATA
+  !==================================================
+
+  initializations from DATA_FILE
+    FACILITIES CUSTOMERS
+    COST DEMAND
+    I_j as "COVERAGE_I_j"
+    J_i as "COVERAGE_J_i"
+  end-initializations
+
+  total_demand := sum(j in CUSTOMERS) DEMAND(j)
+
+  if VERBOSE >= 1 then
+    writeln("Instance Statistics:")
+    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+    writeln("\nTabu Search Parameters:")
+    writeln("  Max iterations: ", MAX_ITERATIONS)
+    writeln("  Tabu tenure: ", TABU_TENURE)
+    writeln("  Candidate list size: ", CANDIDATE_SIZE)
+    writeln("  Intensification frequency: ", INTENSIFY_FREQ)
+    writeln("  Stagnation limit: ", STAGNATION_LIMIT, "\n")
+  end-if
+
+  !==================================================
+  ! TABU SEARCH DATA STRUCTURES
+  !==================================================
+
+  declarations
+    K: set of integer                    ! Current solution
+    K_best: set of integer               ! Best solution found
+    covered_by_count: array(0..nJ-1) of integer  ! Coverage tracking
+    budget_used: real                    ! Current budget usage
+    objective: real                      ! Current objective
+    objective_best: real                 ! Best objective found
+
+    ! Tabu list: stores iteration when facility becomes non-tabu
+    tabu_expiry: array(0..nI-1) of integer
+
+    ! Long-term memory: frequency tracking
+    move_frequency: array(0..nI-1) of integer
+
+    ! Move candidates storage
+    candidate_delta: array(1..1000) of real
+    candidate_move: array(1..1000) of string
+    candidate_i: array(1..1000) of integer
+    candidate_j: array(1..1000) of integer
+  end-declarations
+
+  !==================================================
+  ! INITIALIZATION
+  !==================================================
+
+  start_time := gettime
+
+  if VERBOSE >= 1 then
+    writeln("Initializing with ", INIT_METHOD, " solution...")
+  end-if
+
+  ! Initialize solution
+  K := {}
+  budget_used := 0.0
+  forall(i in 0..nI-1) do
+    tabu_expiry(i) := 0
+    move_frequency(i) := 0
+  end-do
+
+  if INIT_METHOD = "greedy" then
+    ! Greedy initialization
+    covered := {}
+
+    while budget_used < BUDGET do
+      best_fac := -1
+      best_ratio := 0.0
+
+      forall(i in FACILITIES) do
+        if i in K or budget_used + COST(i) > BUDGET then
+          next
+        end-if
+
+        new_cust := J_i(i) - covered
+        gain := sum(j in new_cust) DEMAND(j)
+        ratio := if(COST(i) > 0, gain / COST(i), 999999)
+
+        if ratio > best_ratio then
+          best_ratio := ratio
+          best_fac := i
+        end-if
+      end-do
+
+      if best_fac = -1 or best_ratio <= 0 then
+        break
+      end-if
+
+      K += {best_fac}
+      covered += J_i(best_fac)
+      budget_used += COST(best_fac)
+    end-do
+
+  else
+    ! Random initialization
+    setrandseed(SEED)
+    fac_array := []
+    forall(i in FACILITIES)
+      fac_array += [i]
+
+    ! Shuffle
+    forall(i in 1..nI) do
+      j := ceil(random * (nI - i + 1)) + i - 1
+      if j >= i and j <= nI then
+        temp := fac_array(i)
+        fac_array(i) := fac_array(j)
+        fac_array(j) := temp
+      end-if
+    end-do
+
+    forall(i in 1..nI) do
+      fac := fac_array(i)
+      if budget_used + COST(fac) <= BUDGET then
+        K += {fac}
+        budget_used += COST(fac)
+      end-if
+    end-do
+  end-if
+
+  ! Initialize coverage tracking
+  forall(j in CUSTOMERS)
+    covered_by_count(j) := 0
+
+  forall(i in K) do
+    forall(j in J_i(i))
+      covered_by_count(j) += 1
+  end-do
+
+  ! Compute initial objective
+  objective := 0.0
+  forall(j in CUSTOMERS) do
+    if covered_by_count(j) > 0 then
+      objective += DEMAND(j)
+    end-if
+  end-do
+
+  budget_used := sum(i in K) COST(i)
+
+  ! Initialize best solution
+  K_best := K
+  objective_best := objective
+  initial_obj := objective
+
+  if VERBOSE >= 1 then
+    writeln("Initial Solution:")
+    writeln("  Open facilities: ", card(K))
+    writeln("  Objective: ", strfmt(objective, 10, 2),
+            " / ", strfmt(total_demand, 10, 2),
+            " (", strfmt(objective/total_demand*100, 5, 1), "%)")
+    writeln("  Budget used: ", strfmt(budget_used, 10, 2), " / ", BUDGET)
+    writeln("")
+  end-if
+
+  !==================================================
+  ! TABU SEARCH - MAIN LOOP
+  !==================================================
+
+  if VERBOSE >= 1 then
+    writeln("Starting Tabu Search...")
+    writeln("-"*70)
+  end-if
+
+  iteration := 0
+  improvements := 0
+  stagnation_counter := 0
+  last_improvement_iter := 0
+
+  while iteration < MAX_ITERATIONS do
+    iteration += 1
+
+    !================================================
+    ! CANDIDATE LIST GENERATION
+    !================================================
+
+    num_candidates := 0
+
+    ! Evaluate all neighborhoods and build candidate list
+
+    ! --- CLOSE MOVES ---
+    forall(i in K) do
+      loss := 0.0
+      forall(j in J_i(i)) do
+        if covered_by_count(j) = 1 then
+          loss += DEMAND(j)
+        end-if
+      end-do
+      delta := -loss
+
+      ! Add to candidate list
+      num_candidates += 1
+      candidate_delta(num_candidates) := delta
+      candidate_move(num_candidates) := "close"
+      candidate_i(num_candidates) := i
+      candidate_j(num_candidates) := -1
+    end-do
+
+    ! --- OPEN MOVES ---
+    forall(i in FACILITIES | i not in K) do
+      if budget_used + COST(i) > BUDGET then
+        next
+      end-if
+
+      gain := 0.0
+      forall(j in J_i(i)) do
+        if covered_by_count(j) = 0 then
+          gain += DEMAND(j)
+        end-if
+      end-do
+
+      ! Add to candidate list
+      num_candidates += 1
+      candidate_delta(num_candidates) := gain
+      candidate_move(num_candidates) := "open"
+      candidate_i(num_candidates) := i
+      candidate_j(num_candidates) := -1
+    end-do
+
+    ! --- SWAP MOVES (limited to top candidates for efficiency) ---
+    swap_count := 0
+    forall(i_out in K) do
+      forall(j_in in FACILITIES | j_in not in K) do
+        if swap_count >= CANDIDATE_SIZE then
+          break
+        end-if
+
+        if budget_used - COST(i_out) + COST(j_in) > BUDGET then
+          next
+        end-if
+
+        ! Compute delta
+        loss := 0.0
+        forall(j in J_i(i_out)) do
+          if covered_by_count(j) = 1 then
+            loss += DEMAND(j)
+          end-if
+        end-do
+
+        gain := 0.0
+        forall(j in J_i(j_in)) do
+          if covered_by_count(j) = 0 or
+             (covered_by_count(j) = 1 and i_out in I_j(j)) then
+            gain += DEMAND(j)
+          end-if
+        end-do
+
+        delta := gain - loss
+
+        ! Add to candidate list
+        num_candidates += 1
+        candidate_delta(num_candidates) := delta
+        candidate_move(num_candidates) := "swap"
+        candidate_i(num_candidates) := i_out
+        candidate_j(num_candidates) := j_in
+        swap_count += 1
+      end-do
+
+      if swap_count >= CANDIDATE_SIZE then
+        break
+      end-if
+    end-do
+
+    !================================================
+    ! SORT CANDIDATES (simple bubble sort)
+    !================================================
+
+    forall(i in 1..num_candidates-1) do
+      forall(j in i+1..num_candidates) do
+        if candidate_delta(i) < candidate_delta(j) then
+          ! Swap deltas
+          temp_delta := candidate_delta(i)
+          candidate_delta(i) := candidate_delta(j)
+          candidate_delta(j) := temp_delta
+
+          ! Swap moves
+          temp_move := candidate_move(i)
+          candidate_move(i) := candidate_move(j)
+          candidate_move(j) := temp_move
+
+          ! Swap i indices
+          temp_i := candidate_i(i)
+          candidate_i(i) := candidate_i(j)
+          candidate_i(j) := temp_i
+
+          ! Swap j indices
+          temp_j := candidate_j(i)
+          candidate_j(i) := candidate_j(j)
+          candidate_j(j) := temp_j
+        end-if
+      end-do
+    end-do
+
+    !================================================
+    ! SELECT BEST NON-TABU MOVE (or aspiration)
+    !================================================
+
+    best_idx := -1
+    best_delta := -infinity
+
+    eval_limit := minlist(num_candidates, CANDIDATE_SIZE)
+
+    forall(idx in 1..eval_limit) do
+      move_type := candidate_move(idx)
+      move_i := candidate_i(idx)
+      move_j := candidate_j(idx)
+      delta := candidate_delta(idx)
+
+      ! Check if move involves tabu facilities
+      is_tabu := false
+      if move_type = "close" or move_type = "open" then
+        if tabu_expiry(move_i) > iteration then
+          is_tabu := true
+        end-if
+      elif move_type = "swap" then
+        if tabu_expiry(move_i) > iteration or tabu_expiry(move_j) > iteration then
+          is_tabu := true
+        end-if
+      end-if
+
+      ! ASPIRATION CRITERION: Accept tabu move if it improves global best
+      aspiration := (objective + delta > objective_best + 0.01)
+
+      if (not is_tabu or aspiration) and delta > best_delta then
+        best_delta := delta
+        best_idx := idx
+
+        ! Accept first good move (first-improvement variant)
+        if delta > 0 then
+          break
+        end-if
+      end-if
+    end-do
+
+    ! If no move found, take least bad move
+    if best_idx = -1 and num_candidates > 0 then
+      best_idx := 1
+      best_delta := candidate_delta(1)
+    end-if
+
+    !================================================
+    ! APPLY SELECTED MOVE
+    !================================================
+
+    if best_idx > 0 then
+      move_type := candidate_move(best_idx)
+      move_i := candidate_i(best_idx)
+      move_j := candidate_j(best_idx)
+
+      if move_type = "close" then
+        ! Close facility
+        K -= {move_i}
+        budget_used -= COST(move_i)
+
+        forall(j in J_i(move_i)) do
+          covered_by_count(j) -= 1
+          if covered_by_count(j) = 0 then
+            objective -= DEMAND(j)
+          end-if
+        end-do
+
+        ! Update tabu list and frequency
+        tabu_expiry(move_i) := iteration + TABU_TENURE
+        move_frequency(move_i) += 1
+
+      elif move_type = "open" then
+        ! Open facility
+        K += {move_i}
+        budget_used += COST(move_i)
+
+        forall(j in J_i(move_i)) do
+          if covered_by_count(j) = 0 then
+            objective += DEMAND(j)
+          end-if
+          covered_by_count(j) += 1
+        end-do
+
+        ! Update tabu list and frequency
+        tabu_expiry(move_i) := iteration + TABU_TENURE
+        move_frequency(move_i) += 1
+
+      elif move_type = "swap" then
+        ! Swap: close move_i, open move_j
+        K -= {move_i}
+        budget_used -= COST(move_i)
+
+        forall(j in J_i(move_i)) do
+          covered_by_count(j) -= 1
+          if covered_by_count(j) = 0 then
+            objective -= DEMAND(j)
+          end-if
+        end-do
+
+        K += {move_j}
+        budget_used += COST(move_j)
+
+        forall(j in J_i(move_j)) do
+          if covered_by_count(j) = 0 then
+            objective += DEMAND(j)
+          end-if
+          covered_by_count(j) += 1
+        end-do
+
+        ! Update tabu list and frequency
+        tabu_expiry(move_i) := iteration + TABU_TENURE
+        tabu_expiry(move_j) := iteration + TABU_TENURE
+        move_frequency(move_i) += 1
+        move_frequency(move_j) += 1
+      end-if
+
+      ! Update best solution if improved
+      if objective > objective_best + 0.01 then
+        objective_best := objective
+        K_best := K
+        improvements += 1
+        last_improvement_iter := iteration
+        stagnation_counter := 0
+
+        if VERBOSE >= 2 then
+          writeln("  [Iter ", strfmt(iteration, 4), "] NEW BEST: ",
+                  strfmt(objective_best, 10, 2), " (", move_type, ")")
+        end-if
+      else
+        stagnation_counter += 1
+      end-if
+
+      if VERBOSE >= 2 and iteration mod 20 = 0 then
+        writeln("  [Iter ", strfmt(iteration, 4), "] obj=",
+                strfmt(objective, 10, 2), ", best=",
+                strfmt(objective_best, 10, 2), ", stag=", stagnation_counter)
+      end-if
+    end-if
+
+    !================================================
+    ! INTENSIFICATION: Periodic local search
+    !================================================
+
+    if iteration mod INTENSIFY_FREQ = 0 then
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", iteration, "] INTENSIFICATION: Running local search...")
+      end-if
+
+      ! Run a few local search iterations
+      ls_iter := 0
+      while ls_iter < 10 do
+        ls_iter += 1
+
+        ! Find best improving move
+        ls_best_delta := 0.0
+        ls_best_move := ""
+        ls_best_i := -1
+        ls_best_j := -1
+        ls_found := false
+
+        ! Try close
+        forall(i in K) do
+          loss := 0.0
+          forall(j in J_i(i)) do
+            if covered_by_count(j) = 1 then
+              loss += DEMAND(j)
+            end-if
+          end-do
+          delta := -loss
+
+          if delta > ls_best_delta then
+            ls_best_delta := delta
+            ls_best_move := "close"
+            ls_best_i := i
+            ls_found := true
+            break
+          end-if
+        end-do
+
+        ! Try open
+        if not ls_found then
+          forall(i in FACILITIES | i not in K) do
+            if budget_used + COST(i) > BUDGET then
+              next
+            end-if
+
+            gain := 0.0
+            forall(j in J_i(i)) do
+              if covered_by_count(j) = 0 then
+                gain += DEMAND(j)
+              end-if
+            end-do
+
+            if gain > ls_best_delta then
+              ls_best_delta := gain
+              ls_best_move := "open"
+              ls_best_i := i
+              ls_found := true
+              break
+            end-if
+          end-do
+        end-if
+
+        if not ls_found or ls_best_delta <= 1e-6 then
+          break
+        end-if
+
+        ! Apply move
+        if ls_best_move = "close" then
+          K -= {ls_best_i}
+          budget_used -= COST(ls_best_i)
+          forall(j in J_i(ls_best_i)) do
+            covered_by_count(j) -= 1
+            if covered_by_count(j) = 0 then
+              objective -= DEMAND(j)
+            end-if
+          end-do
+        elif ls_best_move = "open" then
+          K += {ls_best_i}
+          budget_used += COST(ls_best_i)
+          forall(j in J_i(ls_best_i)) do
+            if covered_by_count(j) = 0 then
+              objective += DEMAND(j)
+            end-if
+            covered_by_count(j) += 1
+          end-do
+        end-if
+
+        ! Update best if improved
+        if objective > objective_best + 0.01 then
+          objective_best := objective
+          K_best := K
+          stagnation_counter := 0
+        end-if
+      end-do
+    end-if
+
+    !================================================
+    ! DIVERSIFICATION: Shake on stagnation
+    !================================================
+
+    if stagnation_counter >= STAGNATION_LIMIT then
+      if VERBOSE >= 1 then
+        writeln("  [Iter ", iteration, "] DIVERSIFICATION: Shaking solution...")
+      end-if
+
+      ! Diversification: remove frequent facilities, add infrequent ones
+      setrandseed(SEED + iteration)
+      num_shake := minlist(3, card(K) / 3)
+
+      ! Find most frequent facilities in K
+      freq_array := []
+      fac_array := []
+      forall(i in K) do
+        freq_array += [move_frequency(i)]
+        fac_array += [i]
+      end-do
+
+      ! Remove high-frequency facilities
+      removed := 0
+      forall(idx in 1..getsize(fac_array)) do
+        if removed >= num_shake then
+          break
+        end-if
+
+        ! Find max frequency
+        max_freq := -1
+        max_idx := -1
+        forall(i in 1..getsize(freq_array)) do
+          if freq_array(i) > max_freq then
+            max_freq := freq_array(i)
+            max_idx := i
+          end-if
+        end-do
+
+        if max_idx > 0 then
+          rem_fac := fac_array(max_idx)
+          if rem_fac in K then
+            K -= {rem_fac}
+            budget_used -= COST(rem_fac)
+            forall(j in J_i(rem_fac)) do
+              covered_by_count(j) -= 1
+              if covered_by_count(j) = 0 then
+                objective -= DEMAND(j)
+              end-if
+            end-do
+            removed += 1
+          end-if
+          freq_array(max_idx) := -999
+        end-if
+      end-do
+
+      ! Add random infrequent facilities
+      cand_array := []
+      forall(i in FACILITIES | i not in K)
+        cand_array += [i]
+
+      added := 0
+      forall(i in 1..getsize(cand_array)) do
+        if added >= num_shake then
+          break
+        end-if
+
+        idx := ceil(random * getsize(cand_array))
+        if idx >= 1 and idx <= getsize(cand_array) then
+          add_fac := cand_array(idx)
+          if budget_used + COST(add_fac) <= BUDGET then
+            K += {add_fac}
+            budget_used += COST(add_fac)
+            forall(j in J_i(add_fac)) do
+              if covered_by_count(j) = 0 then
+                objective += DEMAND(j)
+              end-if
+              covered_by_count(j) += 1
+            end-do
+            added += 1
+          end-if
+        end-if
+      end-do
+
+      stagnation_counter := 0
+    end-if
+  end-do
+
+  solve_time := gettime - start_time
+
+  !==================================================
+  ! OUTPUT RESULTS
+  !==================================================
+
+  num_open := card(K_best)
+  num_covered := sum(j in CUSTOMERS) do
+    cov_count := 0
+    forall(i in I_j(j)) do
+      if i in K_best then
+        cov_count += 1
+      end-if
+    end-do
+    if(cov_count > 0, 1, 0)
+  end
+
+  coverage_pct := num_covered / nJ * 100
+  demand_pct := objective_best / total_demand * 100
+  budget_used_best := sum(i in K_best) COST(i)
+  budget_pct := budget_used_best / BUDGET * 100
+  improvement := objective_best - initial_obj
+
+  if VERBOSE >= 1 then
+    writeln("-"*70)
+    writeln("\nTABU SEARCH SOLUTION:")
+    writeln("  Total iterations: ", iteration)
+    writeln("  Improvements: ", improvements)
+    writeln("  Last improvement at iteration: ", last_improvement_iter)
+    writeln("  Open facilities: ", num_open, " / ", nI)
+    writeln("  Covered customers: ", num_covered, " / ", nJ,
+            " (", strfmt(coverage_pct, 5, 1), "%)")
+    writeln("  Budget used: ", strfmt(budget_used_best, 10, 2),
+            " / ", strfmt(BUDGET, 10, 2),
+            " (", strfmt(budget_pct, 5, 1), "%)")
+    writeln("  Initial objective: ", strfmt(initial_obj, 10, 2))
+    writeln("  Final objective: ", strfmt(objective_best, 10, 2),
+            " / ", strfmt(total_demand, 10, 2),
+            " (", strfmt(demand_pct, 5, 1), "%)")
+    writeln("  Improvement: ", strfmt(improvement, 10, 2),
+            " (", strfmt(improvement/initial_obj*100, 5, 1), "%)")
+    writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
+
+    writeln("\nOPEN FACILITIES:")
+    write(" ")
+    forall(i in K_best)
+      write(" ", i)
+    writeln("")
+  end-if
+
+  writeln("\n", "="*70)
+
+end-model

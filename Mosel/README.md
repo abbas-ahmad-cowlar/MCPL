@@ -33,12 +33,12 @@ Mosel/
 │   ├── mclp_closest_neighbor.mos # [Phase 3] Closest neighbor heuristic
 │   ├── mclp_local_search.mos    # [Phase 4] Local search core
 │   ├── mclp_multistart.mos      # [Phase 4] Multi-start wrapper
-│   └── mclp_tabu_search.mos     # [Phase 5] Tabu search metaheuristic
+│   └── mclp_tabu_search.mos     # [Phase 5] Tabu search metaheuristic (✅)
 ├── pseudocode/                  # Algorithm pseudocode documentation
 │   ├── greedy_pseudocode.txt
 │   ├── closest_neighbor_pseudocode.txt
 │   ├── local_search_pseudocode.txt
-│   └── tabu_search_pseudocode.txt
+│   └── tabu_search_pseudocode.txt # (✅)
 ├── results/                     # Experimental results
 │   ├── experimental_results.csv
 │   └── comparison_tables.md
@@ -88,10 +88,12 @@ python utilities/convert_json_to_mosel.py --input ../data/S1.json --output data/
 - **[DATA_FORMAT.md](docs/DATA_FORMAT.md)** - Mosel data format specification
 - **[EXACT_MODEL_USAGE.md](docs/EXACT_MODEL_USAGE.md)** - Exact model usage guide
 - **[HEURISTICS_USAGE.md](docs/HEURISTICS_USAGE.md)** - Heuristics usage guide
+- **[TABU_SEARCH_USAGE.md](docs/TABU_SEARCH_USAGE.md)** - Tabu Search usage guide
 - **[PHASE1_COMPLETION.md](docs/PHASE1_COMPLETION.md)** - Phase 1 completion report
 - **[PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md)** - Phase 2 completion report
 - **[PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md)** - Phase 3 completion report
 - **[PHASE4_COMPLETION.md](docs/PHASE4_COMPLETION.md)** - Phase 4 completion report
+- **[PHASE5_COMPLETION.md](docs/PHASE5_COMPLETION.md)** - Phase 5 completion report
 
 ## 🔬 Mathematical Model
 
@@ -137,10 +139,14 @@ Subject to:
 - [x] Multi-start wrapper with diverse initialization
 - [x] Pseudocode documentation
 
-### 🚧 Phase 5: Metaheuristic - Tabu Search (PENDING)
-- [ ] Tabu list management
-- [ ] Intensification/diversification strategies
-- [ ] Pseudocode documentation
+### ✅ Phase 5: Metaheuristic - Tabu Search (COMPLETED)
+- [x] Tabu list management with tenure
+- [x] Aspiration criterion
+- [x] Candidate list restriction
+- [x] Intensification strategy (periodic local search)
+- [x] Diversification strategy (shake on stagnation)
+- [x] Pseudocode documentation
+- [x] Comprehensive usage guide
 
 ### 🚧 Phase 6: Experimental Validation (PENDING)
 - [ ] Run all algorithms on all instances
@@ -170,4 +176,4 @@ This implementation is part of the MCPL project repository.
 
 ---
 
-**Next Steps:** Proceed to Phase 2 (Exact Model Implementation) - see migration plan for details.
+**Next Steps:** Proceed to Phase 6 (Experimental Validation) - run all algorithms on all instances and analyze results.
