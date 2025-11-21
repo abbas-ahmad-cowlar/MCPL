@@ -40,8 +40,12 @@ Mosel/
 │   ├── local_search_pseudocode.txt
 │   └── tabu_search_pseudocode.txt # (✅)
 ├── results/                     # Experimental results
-│   ├── experimental_results.csv
-│   └── comparison_tables.md
+│   ├── README.md                # Results directory guide
+│   ├── experimental_results.csv # (To be generated)
+│   └── comparison_tables.md     # (To be generated)
+├── scripts/                     # Automation scripts
+│   ├── run_experiments.sh       # Automated experiment execution
+│   └── generate_tables.py       # Results analysis and table generation
 └── utilities/                   # Helper scripts
     └── convert_json_to_mosel.py # JSON to .dat converter
 ```
@@ -89,11 +93,13 @@ python utilities/convert_json_to_mosel.py --input ../data/S1.json --output data/
 - **[EXACT_MODEL_USAGE.md](docs/EXACT_MODEL_USAGE.md)** - Exact model usage guide
 - **[HEURISTICS_USAGE.md](docs/HEURISTICS_USAGE.md)** - Heuristics usage guide
 - **[TABU_SEARCH_USAGE.md](docs/TABU_SEARCH_USAGE.md)** - Tabu Search usage guide
+- **[EXPERIMENTAL_VALIDATION.md](docs/EXPERIMENTAL_VALIDATION.md)** - Validation guide
 - **[PHASE1_COMPLETION.md](docs/PHASE1_COMPLETION.md)** - Phase 1 completion report
 - **[PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md)** - Phase 2 completion report
 - **[PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md)** - Phase 3 completion report
 - **[PHASE4_COMPLETION.md](docs/PHASE4_COMPLETION.md)** - Phase 4 completion report
 - **[PHASE5_COMPLETION.md](docs/PHASE5_COMPLETION.md)** - Phase 5 completion report
+- **[PHASE6_COMPLETION.md](docs/PHASE6_COMPLETION.md)** - Phase 6 completion report
 
 ## 🔬 Mathematical Model
 
@@ -148,10 +154,15 @@ Subject to:
 - [x] Pseudocode documentation
 - [x] Comprehensive usage guide
 
-### 🚧 Phase 6: Experimental Validation (PENDING)
-- [ ] Run all algorithms on all instances
-- [ ] Statistical analysis
-- [ ] Comparison tables
+### ✅ Phase 6: Experimental Validation (FRAMEWORK COMPLETE)
+- [x] Automated experiment execution framework (bash script)
+- [x] Results analysis tools (Python script)
+- [x] Results directory structure and templates
+- [x] Comprehensive validation documentation
+- [x] Statistical analysis framework
+- [x] Comparison table generation
+- [ ] Execute experiments (requires Mosel environment)
+- [ ] Analyze actual results
 
 ### 🚧 Phase 7: Final Documentation (PENDING)
 - [ ] Complete implementation report
