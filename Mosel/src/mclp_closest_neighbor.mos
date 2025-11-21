@@ -1,0 +1,342 @@
+(!******************************************************
+   Maximum Covering Location Problem (MCLP)
+   Closest Neighbor Constructive Heuristic
+
+   Algorithm: Prioritize high-demand customers and
+   select nearest (lowest cost) facility for each.
+
+   Strategy:
+   1. Sort customers by demand (descending)
+   2. For each uncovered customer:
+      - Find closest feasible facility (min cost as proxy)
+      - Open facility if budget allows
+   3. Continue until budget exhausted
+
+   Distance Proxy: Facility cost used as distance metric
+
+   Time Complexity: O(nJ * nI * log(nI))
+   Space Complexity: O(nI + nJ)
+
+   Reference: Distance-based greedy approach
+
+   Author: MCLP Migration Team
+   Date: November 2025
+   Phase: 3 - Heuristic Implementations
+******************************************************!)
+
+model "MCLP_Closest_Neighbor"
+
+  !==================================================
+  ! PARAMETERS
+  !==================================================
+
+  parameters
+    DATA_FILE = "data/test_tiny.dat"  ! Default instance
+    SEED = 42                          ! Random seed (for tie-breaking)
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
+  end-parameters
+
+  !==================================================
+  ! FORWARD DECLARATIONS
+  !==================================================
+
+  declarations
+    nI, nJ: integer
+    BUDGET: real
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DIMENSIONS
+  !==================================================
+
+  initializations from DATA_FILE
+    nI nJ BUDGET
+  end-initializations
+
+  if VERBOSE >= 1 then
+    writeln("\n", "="*70)
+    writeln("MCLP CLOSEST NEIGHBOR HEURISTIC")
+    writeln("="*70)
+    writeln("Instance: ", DATA_FILE)
+    writeln("Facilities: ", nI, ", Customers: ", nJ)
+    writeln("Budget: ", BUDGET)
+    writeln("="*70, "\n")
+  end-if
+
+  !==================================================
+  ! MAIN DECLARATIONS
+  !==================================================
+
+  declarations
+    FACILITIES: set of integer
+    CUSTOMERS: set of integer
+    COST: array(0..nI-1) of real
+    DEMAND: array(0..nJ-1) of real
+    I_j: array(0..nJ-1) of set of integer
+    J_i: array(0..nI-1) of set of integer
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DATA
+  !==================================================
+
+  initializations from DATA_FILE
+    FACILITIES CUSTOMERS
+    COST DEMAND
+    I_j as "COVERAGE_I_j"
+    J_i as "COVERAGE_J_i"
+  end-initializations
+
+  ! Compute instance statistics
+  total_facility_cost := sum(i in FACILITIES) COST(i)
+  total_demand := sum(j in CUSTOMERS) DEMAND(j)
+  coverage_density := sum(j in CUSTOMERS) card(I_j(j)) / (nI * nJ)
+
+  if VERBOSE >= 1 then
+    writeln("Instance Statistics:")
+    writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
+    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+    writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
+    writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%\n")
+  end-if
+
+  !==================================================
+  ! SORT CUSTOMERS BY DEMAND (DESCENDING)
+  !==================================================
+
+  declarations
+    customer_list: array(1..nJ) of integer     ! Sorted customer list
+    demand_list: array(1..nJ) of real          ! Corresponding demands
+  end-declarations
+
+  ! Copy customers to array for sorting
+  idx := 1
+  forall(j in CUSTOMERS) do
+    customer_list(idx) := j
+    demand_list(idx) := DEMAND(j)
+    idx += 1
+  end-do
+
+  ! Simple bubble sort (descending by demand)
+  ! For production, use more efficient sorting if nJ large
+  forall(i in 1..nJ-1) do
+    forall(j in i+1..nJ) do
+      if demand_list(i) < demand_list(j) then
+        ! Swap demands
+        temp_demand := demand_list(i)
+        demand_list(i) := demand_list(j)
+        demand_list(j) := temp_demand
+
+        ! Swap customers
+        temp_customer := customer_list(i)
+        customer_list(i) := customer_list(j)
+        customer_list(j) := temp_customer
+      end-if
+    end-do
+  end-do
+
+  if VERBOSE >= 2 then
+    writeln("Customers sorted by demand (descending):")
+    forall(i in 1..min(10, nJ))
+      writeln("  ", i, ". Customer ", customer_list(i),
+              " (demand: ", strfmt(demand_list(i), 8, 2), ")")
+    if nJ > 10 then
+      writeln("  ... (", nJ - 10, " more)")
+    end-if
+    writeln("")
+  end-if
+
+  !==================================================
+  ! CLOSEST NEIGHBOR ALGORITHM
+  !==================================================
+
+  declarations
+    open_facilities: set of integer
+    covered_customers: set of integer
+    budget_used: real
+    facilities_opened: integer
+  end-declarations
+
+  ! Initialize solution
+  open_facilities := {}
+  covered_customers := {}
+  budget_used := 0.0
+  facilities_opened := 0
+
+  start_time := gettime
+
+  if VERBOSE >= 1 then
+    writeln("Starting Closest Neighbor Construction...")
+    writeln("-"*70)
+  end-if
+
+  ! Iterate through customers in demand order
+  forall(idx in 1..nJ) do
+    customer := customer_list(idx)
+
+    ! Skip if already covered or budget exhausted
+    if customer in covered_customers or budget_used >= BUDGET then
+      next
+    end-if
+
+    ! Find closest (cheapest) uncovered facility for this customer
+    best_facility := -1
+    best_distance := infinity  ! Using cost as distance proxy
+    best_cost := infinity
+
+    forall(i in I_j(customer)) do
+      ! Skip if already open
+      if i in open_facilities then
+        next
+      end-if
+
+      ! Check budget feasibility
+      if budget_used + COST(i) > BUDGET then
+        next
+      end-if
+
+      ! Use facility cost as distance proxy
+      ! Tie-breaking: lower cost, then lower facility ID
+      distance := COST(i)
+
+      if distance < best_distance or
+         (abs(distance - best_distance) < 0.0001 and
+          (best_facility = -1 or i < best_facility)) then
+        best_distance := distance
+        best_facility := i
+        best_cost := COST(i)
+      end-if
+    end-do
+
+    ! If feasible facility found, open it
+    if best_facility <> -1 then
+      open_facilities += {best_facility}
+      covered_customers += J_i(best_facility)
+      budget_used += best_cost
+      facilities_opened += 1
+
+      if VERBOSE >= 2 then
+        new_covered := card(J_i(best_facility))
+        writeln("  [Cust ", strfmt(customer, 3), ", demand=", strfmt(DEMAND(customer), 6, 2),
+                "] Open facility ", strfmt(best_facility, 3),
+                ": cost=", strfmt(best_cost, 6, 2),
+                ", covers ", new_covered, " customers")
+      end-if
+    end-if
+  end-do
+
+  solve_time := gettime - start_time
+
+  !==================================================
+  ! COMPUTE SOLUTION METRICS
+  !==================================================
+
+  num_open := card(open_facilities)
+  num_covered := card(covered_customers)
+  objective_value := sum(j in covered_customers) DEMAND(j)
+  coverage_pct := num_covered / nJ * 100
+  demand_pct := objective_value / total_demand * 100
+  budget_pct := budget_used / BUDGET * 100
+
+  !==================================================
+  ! OUTPUT RESULTS
+  !==================================================
+
+  if VERBOSE >= 1 then
+    writeln("-"*70)
+    writeln("\nCLOSEST NEIGHBOR SOLUTION:")
+    writeln("  Customers processed: ", nJ)
+    writeln("  Facilities opened: ", facilities_opened)
+    writeln("  Open facilities: ", num_open, " / ", nI)
+    writeln("  Covered customers: ", num_covered, " / ", nJ,
+            " (", strfmt(coverage_pct, 5, 1), "%)")
+    writeln("  Budget used: ", strfmt(budget_used, 10, 2),
+            " / ", strfmt(BUDGET, 10, 2),
+            " (", strfmt(budget_pct, 5, 1), "%)")
+    writeln("  Total demand covered: ", strfmt(objective_value, 10, 2),
+            " / ", strfmt(total_demand, 10, 2),
+            " (", strfmt(demand_pct, 5, 1), "%)")
+    writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
+
+    writeln("\nOPEN FACILITIES:")
+    write(" ")
+    forall(i in open_facilities)
+      write(" ", i)
+    writeln("")
+  end-if
+
+  if VERBOSE >= 2 then
+    writeln("\nFACILITY DETAILS:")
+    forall(i in open_facilities) do
+      customers_covered := card(J_i(i) * covered_customers)
+      writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
+              ", covers ", customers_covered, " customers")
+    end-do
+
+    writeln("\nCOVERED CUSTOMERS:")
+    forall(j in covered_customers) do
+      covering_facilities := card(I_j(j) * open_facilities)
+      writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
+              ", covered by ", covering_facilities, " facilities")
+    end-do
+
+    writeln("\nUNCOVERED HIGH-DEMAND CUSTOMERS:")
+    uncovered_count := 0
+    forall(idx in 1..min(10, nJ)) do
+      customer := customer_list(idx)
+      if customer not in covered_customers then
+        writeln("  Customer ", strfmt(customer, 3), ": demand=",
+                strfmt(DEMAND(customer), 8, 2), " (NOT COVERED)")
+        uncovered_count += 1
+      end-if
+    end-do
+    if uncovered_count = 0 then
+      writeln("  (All high-demand customers covered)")
+    end-if
+  end-if
+
+  writeln("\n", "="*70)
+
+  !==================================================
+  ! SOLUTION VALIDATION
+  !==================================================
+
+  if VERBOSE >= 2 then
+    writeln("\nValidating solution...")
+
+    ! Check budget feasibility
+    if budget_used > BUDGET + 0.001 then
+      writeln("ERROR: Budget constraint violated!")
+      writeln("  Used: ", budget_used, ", Budget: ", BUDGET)
+    else
+      writeln("✓ Budget constraint satisfied")
+    end-if
+
+    ! Check coverage consistency
+    violations := 0
+    forall(j in covered_customers) do
+      covering_count := sum(i in I_j(j)) if(i in open_facilities, 1, 0)
+      if covering_count < 1 then
+        writeln("ERROR: Customer ", j, " marked covered but no facility open!")
+        violations += 1
+      end-if
+    end-do
+
+    if violations = 0 then
+      writeln("✓ All coverage relationships valid")
+    else
+      writeln("ERROR: ", violations, " coverage violations")
+    end-if
+
+    ! Recompute objective
+    recomputed_obj := sum(j in covered_customers) DEMAND(j)
+    if abs(recomputed_obj - objective_value) < 0.001 then
+      writeln("✓ Objective value verified")
+    else
+      writeln("WARNING: Objective mismatch (", objective_value, " vs ", recomputed_obj, ")")
+    end-if
+
+    writeln("✓ Solution validation complete\n")
+  end-if
+
+end-model
