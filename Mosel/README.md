@@ -87,8 +87,10 @@ python utilities/convert_json_to_mosel.py --input ../data/S1.json --output data/
 - **[SETUP.md](docs/SETUP.md)** - Environment setup and installation guide
 - **[DATA_FORMAT.md](docs/DATA_FORMAT.md)** - Mosel data format specification
 - **[EXACT_MODEL_USAGE.md](docs/EXACT_MODEL_USAGE.md)** - Exact model usage guide
+- **[HEURISTICS_USAGE.md](docs/HEURISTICS_USAGE.md)** - Heuristics usage guide
 - **[PHASE1_COMPLETION.md](docs/PHASE1_COMPLETION.md)** - Phase 1 completion report
 - **[PHASE2_COMPLETION.md](docs/PHASE2_COMPLETION.md)** - Phase 2 completion report
+- **[PHASE3_COMPLETION.md](docs/PHASE3_COMPLETION.md)** - Phase 3 completion report
 
 ## 🔬 Mathematical Model
 
@@ -123,10 +125,11 @@ Subject to:
 - [x] Solution extraction and output
 - [x] Comprehensive usage documentation
 
-### 🚧 Phase 3: Heuristic Implementations (PENDING)
-- [ ] Greedy heuristic
-- [ ] Closest Neighbor heuristic
-- [ ] Pseudocode documentation
+### ✅ Phase 3: Heuristic Implementations (COMPLETED)
+- [x] Greedy heuristic implementation
+- [x] Closest Neighbor heuristic implementation
+- [x] Pseudocode documentation (both algorithms)
+- [x] Comprehensive usage guide
 
 ### 🚧 Phase 4: Multi-Start Local Search (PENDING)
 - [ ] Local search with delta-evaluation
