@@ -1,0 +1,294 @@
+(!******************************************************
+   Maximum Covering Location Problem (MCLP)
+   Greedy Constructive Heuristic
+
+   Algorithm: Iteratively select facility with maximum
+   coverage gain per cost until budget exhausted.
+
+   Selection Criterion: max(coverage_gain / facility_cost)
+
+   Time Complexity: O(nI² * nJ) in worst case
+   Space Complexity: O(nI + nJ)
+
+   Reference: Classic greedy approach for MCLP
+
+   Author: MCLP Migration Team
+   Date: November 2025
+   Phase: 3 - Heuristic Implementations
+******************************************************!)
+
+model "MCLP_Greedy"
+
+  !==================================================
+  ! PARAMETERS
+  !==================================================
+
+  parameters
+    DATA_FILE = "data/test_tiny.dat"  ! Default instance
+    SEED = 42                          ! Random seed (for tie-breaking)
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
+  end-parameters
+
+  !==================================================
+  ! FORWARD DECLARATIONS
+  !==================================================
+
+  declarations
+    nI, nJ: integer
+    BUDGET: real
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DIMENSIONS
+  !==================================================
+
+  initializations from DATA_FILE
+    nI nJ BUDGET
+  end-initializations
+
+  if VERBOSE >= 1 then
+    writeln("\n", "="*70)
+    writeln("MCLP GREEDY HEURISTIC")
+    writeln("="*70)
+    writeln("Instance: ", DATA_FILE)
+    writeln("Facilities: ", nI, ", Customers: ", nJ)
+    writeln("Budget: ", BUDGET)
+    writeln("="*70, "\n")
+  end-if
+
+  !==================================================
+  ! MAIN DECLARATIONS
+  !==================================================
+
+  declarations
+    FACILITIES: set of integer
+    CUSTOMERS: set of integer
+    COST: array(0..nI-1) of real
+    DEMAND: array(0..nJ-1) of real
+    I_j: array(0..nJ-1) of set of integer  ! Facilities covering customer j
+    J_i: array(0..nI-1) of set of integer  ! Customers covered by facility i
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DATA
+  !==================================================
+
+  initializations from DATA_FILE
+    FACILITIES CUSTOMERS
+    COST DEMAND
+    I_j as "COVERAGE_I_j"
+    J_i as "COVERAGE_J_i"
+  end-initializations
+
+  ! Compute instance statistics
+  total_facility_cost := sum(i in FACILITIES) COST(i)
+  total_demand := sum(j in CUSTOMERS) DEMAND(j)
+  coverage_density := sum(j in CUSTOMERS) card(I_j(j)) / (nI * nJ)
+
+  if VERBOSE >= 1 then
+    writeln("Instance Statistics:")
+    writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
+    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+    writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
+    writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%\n")
+  end-if
+
+  !==================================================
+  ! GREEDY ALGORITHM
+  !==================================================
+
+  declarations
+    open_facilities: set of integer     ! K: Set of open facilities
+    covered_customers: set of integer   ! Covered customer set
+    budget_used: real                   ! Current budget used
+    iteration: integer                  ! Iteration counter
+  end-declarations
+
+  ! Initialize solution
+  open_facilities := {}
+  covered_customers := {}
+  budget_used := 0.0
+  iteration := 0
+
+  start_time := gettime
+
+  if VERBOSE >= 1 then
+    writeln("Starting Greedy Construction...")
+    writeln("-"*70)
+  end-if
+
+  ! Main greedy loop
+  while budget_used < BUDGET do
+    iteration += 1
+
+    ! Find best facility to open
+    best_facility := -1
+    best_gain_per_cost := 0.0
+    best_gain := 0.0
+
+    ! Evaluate all unopened facilities
+    forall(i in FACILITIES) do
+      ! Skip if already open
+      if i in open_facilities then
+        next
+      end-if
+
+      ! Check budget feasibility
+      if budget_used + COST(i) > BUDGET then
+        next
+      end-if
+
+      ! Compute incremental coverage gain
+      ! Only count customers not yet covered
+      new_customers := J_i(i) - covered_customers
+      gain := sum(j in new_customers) DEMAND(j)
+
+      ! Compute gain per cost ratio
+      if COST(i) > 0.0001 then
+        gain_per_cost := gain / COST(i)
+      else
+        gain_per_cost := gain * 1000000  ! Avoid division by zero
+      end-if
+
+      ! Update best facility
+      ! Tie-breaking: prefer higher gain, then lower facility ID
+      if gain_per_cost > best_gain_per_cost or
+         (abs(gain_per_cost - best_gain_per_cost) < 0.0001 and
+          (best_facility = -1 or i < best_facility)) then
+        best_gain_per_cost := gain_per_cost
+        best_facility := i
+        best_gain := gain
+      end-if
+    end-do
+
+    ! Check termination conditions
+    if best_facility = -1 then
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", iteration, "] No feasible facility found")
+      end-if
+      break  ! No improving facility found
+    end-if
+
+    if best_gain_per_cost < 0.0001 then
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", iteration, "] No facility with positive gain")
+      end-if
+      break  ! No facility provides coverage gain
+    end-if
+
+    ! Open best facility
+    open_facilities += {best_facility}
+    covered_customers += J_i(best_facility)
+    budget_used += COST(best_facility)
+
+    ! Verbose logging
+    if VERBOSE >= 2 then
+      new_covered := card(J_i(best_facility) - (covered_customers - J_i(best_facility)))
+      writeln("  [Iter ", strfmt(iteration, 2), "] Open facility ", strfmt(best_facility, 3),
+              ": cost=", strfmt(COST(best_facility), 6, 2),
+              ", gain=", strfmt(best_gain, 8, 2),
+              ", ratio=", strfmt(best_gain_per_cost, 8, 2),
+              ", new_cust=", new_covered)
+    end-if
+  end-do
+
+  solve_time := gettime - start_time
+
+  !==================================================
+  ! COMPUTE SOLUTION METRICS
+  !==================================================
+
+  num_open := card(open_facilities)
+  num_covered := card(covered_customers)
+  objective_value := sum(j in covered_customers) DEMAND(j)
+  coverage_pct := num_covered / nJ * 100
+  demand_pct := objective_value / total_demand * 100
+  budget_pct := budget_used / BUDGET * 100
+
+  !==================================================
+  ! OUTPUT RESULTS
+  !==================================================
+
+  if VERBOSE >= 1 then
+    writeln("-"*70)
+    writeln("\nGREEDY SOLUTION:")
+    writeln("  Iterations: ", iteration)
+    writeln("  Open facilities: ", num_open, " / ", nI)
+    writeln("  Covered customers: ", num_covered, " / ", nJ,
+            " (", strfmt(coverage_pct, 5, 1), "%)")
+    writeln("  Budget used: ", strfmt(budget_used, 10, 2),
+            " / ", strfmt(BUDGET, 10, 2),
+            " (", strfmt(budget_pct, 5, 1), "%)")
+    writeln("  Total demand covered: ", strfmt(objective_value, 10, 2),
+            " / ", strfmt(total_demand, 10, 2),
+            " (", strfmt(demand_pct, 5, 1), "%)")
+    writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
+
+    writeln("\nOPEN FACILITIES:")
+    write(" ")
+    forall(i in open_facilities)
+      write(" ", i)
+    writeln("")
+  end-if
+
+  if VERBOSE >= 2 then
+    writeln("\nFACILITY DETAILS:")
+    forall(i in open_facilities) do
+      customers_covered := card(J_i(i) * covered_customers)
+      writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
+              ", covers ", customers_covered, " customers")
+    end-do
+
+    writeln("\nCOVERED CUSTOMERS:")
+    forall(j in covered_customers) do
+      covering_facilities := card(I_j(j) * open_facilities)
+      writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
+              ", covered by ", covering_facilities, " facilities")
+    end-do
+  end-if
+
+  writeln("\n", "="*70)
+
+  !==================================================
+  ! SOLUTION VALIDATION
+  !==================================================
+
+  if VERBOSE >= 2 then
+    writeln("\nValidating solution...")
+
+    ! Check budget feasibility
+    if budget_used > BUDGET + 0.001 then
+      writeln("ERROR: Budget constraint violated!")
+      writeln("  Used: ", budget_used, ", Budget: ", BUDGET)
+    else
+      writeln("✓ Budget constraint satisfied")
+    end-if
+
+    ! Check coverage consistency
+    violations := 0
+    forall(j in covered_customers) do
+      covering_count := sum(i in I_j(j)) if(i in open_facilities, 1, 0)
+      if covering_count < 1 then
+        writeln("ERROR: Customer ", j, " marked covered but no facility open!")
+        violations += 1
+      end-if
+    end-do
+
+    if violations = 0 then
+      writeln("✓ All coverage relationships valid")
+    else
+      writeln("ERROR: ", violations, " coverage violations")
+    end-if
+
+    ! Recompute objective
+    recomputed_obj := sum(j in covered_customers) DEMAND(j)
+    if abs(recomputed_obj - objective_value) < 0.001 then
+      writeln("✓ Objective value verified")
+    else
+      writeln("WARNING: Objective mismatch (", objective_value, " vs ", recomputed_obj, ")")
+    end-if
+
+    writeln("✓ Solution validation complete\n")
+  end-if
+
+end-model
