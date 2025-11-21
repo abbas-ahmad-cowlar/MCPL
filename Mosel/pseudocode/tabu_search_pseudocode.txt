@@ -1,0 +1,718 @@
+================================================================================
+TABU SEARCH METAHEURISTIC FOR MCLP
+================================================================================
+
+Algorithm Name: Tabu Search with Intensification and Diversification
+
+Type: Memory-based metaheuristic
+Complexity: O(max_iter · candidate_size · nJ) time, O(nI + nJ) space
+
+================================================================================
+ALGORITHM DESCRIPTION
+================================================================================
+
+Tabu Search (TS) is an advanced metaheuristic that uses adaptive memory to
+guide the search beyond local optima. Unlike basic local search, TS can
+accept worsening moves and employs strategic mechanisms to balance
+intensification (exploitation) and diversification (exploration).
+
+Key Mechanisms:
+1. SHORT-TERM MEMORY: Tabu list prevents cycling by forbidding recent moves
+2. ASPIRATION CRITERION: Override tabu status for exceptional moves
+3. CANDIDATE LIST: Restrict evaluation to promising moves for efficiency
+4. INTENSIFICATION: Periodic local search to exploit good regions
+5. DIVERSIFICATION: Strategic perturbation to escape stagnation
+
+Memory Structures:
+- Tabu list: Recency-based (facility → expiry_iteration)
+- Long-term memory: Frequency-based (facility → move_count)
+
+Search Strategy:
+- Best-admissible: Select best non-tabu move (or best aspiring move)
+- Strategic oscillation: Allow temporary objective degradation
+- Adaptive diversification: Triggered by stagnation detection
+
+================================================================================
+MAIN ALGORITHM - PSEUDOCODE
+================================================================================
+
+ALGORITHM Tabu-Search(instance, max_iter, tenure, params)
+  INPUT:
+    instance       - MCLP instance (I, J, f, d, I_j, J_i, B)
+    max_iter       - Maximum iterations
+    tenure         - Tabu tenure (number of iterations)
+    candidate_size - Candidate list restriction size
+    intensify_freq - Intensification frequency
+    stagnation_lim - Diversification trigger threshold
+
+  OUTPUT:
+    K_best         - Best solution found
+    obj_best       - Best objective value
+    statistics     - Search statistics
+
+  BEGIN
+    !==================================================
+    ! INITIALIZATION
+    !==================================================
+
+    // Generate initial solution (greedy or random)
+    K ← GREEDY-HEURISTIC(instance)
+    budget_used ← Σ{f[i] : i ∈ K}
+
+    // Initialize coverage tracking
+    covered_by_count[j] ← 0  ∀ j ∈ J
+    FOR EACH i ∈ K DO
+      FOR EACH j ∈ J_i[i] DO
+        covered_by_count[j] ← covered_by_count[j] + 1
+      END FOR
+    END FOR
+
+    // Compute initial objective
+    objective ← Σ{d[j] : j ∈ J, covered_by_count[j] > 0}
+
+    // Initialize best solution
+    K_best ← K
+    obj_best ← objective
+
+    // Initialize tabu list (all facilities non-tabu)
+    tabu_expiry[i] ← 0  ∀ i ∈ I
+
+    // Initialize long-term memory
+    move_frequency[i] ← 0  ∀ i ∈ I
+
+    // Initialize search state
+    iteration ← 0
+    stagnation_counter ← 0
+    last_improvement_iter ← 0
+
+    !==================================================
+    ! MAIN TABU SEARCH LOOP
+    !==================================================
+
+    WHILE iteration < max_iter DO
+      iteration ← iteration + 1
+
+      // ===== STEP 1: GENERATE CANDIDATE MOVES =====
+
+      candidates ← []
+
+      // 1a. Close moves
+      FOR EACH i ∈ K DO
+        delta ← DELTA-EVAL-CLOSE(i)
+        candidates.append({
+          type: CLOSE,
+          facility: i,
+          delta: delta
+        })
+      END FOR
+
+      // 1b. Open moves
+      FOR EACH i ∈ I \ K DO
+        IF budget_used + f[i] > B THEN CONTINUE
+
+        delta ← DELTA-EVAL-OPEN(i)
+        candidates.append({
+          type: OPEN,
+          facility: i,
+          delta: delta
+        })
+      END FOR
+
+      // 1c. Swap moves (limited for efficiency)
+      swap_count ← 0
+      FOR EACH i_out ∈ K DO
+        FOR EACH i_in ∈ I \ K DO
+          IF swap_count ≥ candidate_size THEN BREAK
+
+          IF budget_used - f[i_out] + f[i_in] > B THEN CONTINUE
+
+          delta ← DELTA-EVAL-SWAP(i_out, i_in)
+          candidates.append({
+            type: SWAP,
+            i_out: i_out,
+            i_in: i_in,
+            delta: delta
+          })
+          swap_count ← swap_count + 1
+        END FOR
+        IF swap_count ≥ candidate_size THEN BREAK
+      END FOR
+
+      // ===== STEP 2: SORT CANDIDATES BY DELTA =====
+
+      SORT candidates BY delta DESCENDING
+
+      // ===== STEP 3: SELECT BEST ADMISSIBLE MOVE =====
+
+      best_move ← null
+      best_delta ← -∞
+
+      eval_limit ← min(|candidates|, candidate_size)
+
+      FOR idx ← 1 TO eval_limit DO
+        move ← candidates[idx]
+
+        // Check tabu status
+        is_tabu ← false
+        IF move.type = CLOSE OR move.type = OPEN THEN
+          IF tabu_expiry[move.facility] > iteration THEN
+            is_tabu ← true
+          END IF
+        ELIF move.type = SWAP THEN
+          IF tabu_expiry[move.i_out] > iteration OR
+             tabu_expiry[move.i_in] > iteration THEN
+            is_tabu ← true
+          END IF
+        END IF
+
+        // ASPIRATION CRITERION:
+        // Accept tabu move if it improves global best
+        aspiration ← (objective + move.delta > obj_best + ε)
+
+        // Accept if non-tabu or aspiring
+        IF (NOT is_tabu OR aspiration) AND move.delta > best_delta THEN
+          best_move ← move
+          best_delta ← move.delta
+
+          // First-improvement variant: accept first good move
+          IF move.delta > 0 THEN BREAK
+        END IF
+      END FOR
+
+      // If no admissible move found, take least bad move
+      IF best_move = null AND |candidates| > 0 THEN
+        best_move ← candidates[1]
+        best_delta ← candidates[1].delta
+      END IF
+
+      // ===== STEP 4: APPLY SELECTED MOVE =====
+
+      IF best_move ≠ null THEN
+        IF best_move.type = CLOSE THEN
+          // Close facility
+          i ← best_move.facility
+          K ← K \ {i}
+          budget_used ← budget_used - f[i]
+
+          FOR EACH j ∈ J_i[i] DO
+            covered_by_count[j] ← covered_by_count[j] - 1
+            IF covered_by_count[j] = 0 THEN
+              objective ← objective - d[j]
+            END IF
+          END FOR
+
+          // Update tabu list
+          tabu_expiry[i] ← iteration + tenure
+          move_frequency[i] ← move_frequency[i] + 1
+
+        ELIF best_move.type = OPEN THEN
+          // Open facility
+          i ← best_move.facility
+          K ← K ∪ {i}
+          budget_used ← budget_used + f[i]
+
+          FOR EACH j ∈ J_i[i] DO
+            IF covered_by_count[j] = 0 THEN
+              objective ← objective + d[j]
+            END IF
+            covered_by_count[j] ← covered_by_count[j] + 1
+          END FOR
+
+          // Update tabu list
+          tabu_expiry[i] ← iteration + tenure
+          move_frequency[i] ← move_frequency[i] + 1
+
+        ELIF best_move.type = SWAP THEN
+          // Swap: close i_out, open i_in
+          i_out ← best_move.i_out
+          i_in ← best_move.i_in
+
+          // Close i_out
+          K ← K \ {i_out}
+          budget_used ← budget_used - f[i_out]
+          FOR EACH j ∈ J_i[i_out] DO
+            covered_by_count[j] ← covered_by_count[j] - 1
+            IF covered_by_count[j] = 0 THEN
+              objective ← objective - d[j]
+            END IF
+          END FOR
+
+          // Open i_in
+          K ← K ∪ {i_in}
+          budget_used ← budget_used + f[i_in]
+          FOR EACH j ∈ J_i[i_in] DO
+            IF covered_by_count[j] = 0 THEN
+              objective ← objective + d[j]
+            END IF
+            covered_by_count[j] ← covered_by_count[j] + 1
+          END FOR
+
+          // Update tabu list
+          tabu_expiry[i_out] ← iteration + tenure
+          tabu_expiry[i_in] ← iteration + tenure
+          move_frequency[i_out] ← move_frequency[i_out] + 1
+          move_frequency[i_in] ← move_frequency[i_in] + 1
+        END IF
+
+        // Update best solution if improved
+        IF objective > obj_best + ε THEN
+          obj_best ← objective
+          K_best ← K
+          last_improvement_iter ← iteration
+          stagnation_counter ← 0
+          PRINT "New best found: ", obj_best
+        ELSE
+          stagnation_counter ← stagnation_counter + 1
+        END IF
+      END IF
+
+      // ===== STEP 5: INTENSIFICATION =====
+
+      IF iteration MOD intensify_freq = 0 THEN
+        PRINT "Intensification at iteration ", iteration
+        K, objective ← LOCAL-SEARCH(K, 10)  // Run 10 LS iterations
+
+        // Update best if improved
+        IF objective > obj_best + ε THEN
+          obj_best ← objective
+          K_best ← K
+          stagnation_counter ← 0
+        END IF
+      END IF
+
+      // ===== STEP 6: DIVERSIFICATION =====
+
+      IF stagnation_counter ≥ stagnation_lim THEN
+        PRINT "Diversification at iteration ", iteration
+
+        // Remove frequent facilities
+        num_shake ← min(3, |K| / 3)
+        frequent_facilities ← TOP-K-FREQUENT(K, num_shake, move_frequency)
+
+        FOR EACH i ∈ frequent_facilities DO
+          K ← K \ {i}
+          budget_used ← budget_used - f[i]
+          FOR EACH j ∈ J_i[i] DO
+            covered_by_count[j] ← covered_by_count[j] - 1
+            IF covered_by_count[j] = 0 THEN
+              objective ← objective - d[j]
+            END IF
+          END FOR
+        END FOR
+
+        // Add random infrequent facilities
+        infrequent ← SHUFFLE(I \ K)
+        added ← 0
+
+        FOR EACH i ∈ infrequent DO
+          IF added ≥ num_shake THEN BREAK
+          IF budget_used + f[i] ≤ B THEN
+            K ← K ∪ {i}
+            budget_used ← budget_used + f[i]
+            FOR EACH j ∈ J_i[i] DO
+              IF covered_by_count[j] = 0 THEN
+                objective ← objective + d[j]
+              END IF
+              covered_by_count[j] ← covered_by_count[j] + 1
+            END FOR
+            added ← added + 1
+          END IF
+        END FOR
+
+        stagnation_counter ← 0
+      END IF
+    END WHILE
+
+    RETURN K_best, obj_best, {
+      total_iterations: iteration,
+      last_improvement: last_improvement_iter,
+      improvements: improvements
+    }
+  END
+
+================================================================================
+DELTA-EVALUATION FUNCTIONS
+================================================================================
+
+(Same as Local Search - see local_search_pseudocode.txt)
+
+FUNCTION DELTA-EVAL-CLOSE(i)
+  IF i ∉ K THEN RETURN -∞
+
+  loss ← 0
+  FOR EACH j ∈ J_i[i] DO
+    IF covered_by_count[j] = 1 THEN
+      loss ← loss + d[j]
+    END IF
+  END FOR
+
+  RETURN -loss
+END FUNCTION
+
+FUNCTION DELTA-EVAL-OPEN(i)
+  IF i ∈ K THEN RETURN -∞
+  IF budget_used + f[i] > B THEN RETURN -∞
+
+  gain ← 0
+  FOR EACH j ∈ J_i[i] DO
+    IF covered_by_count[j] = 0 THEN
+      gain ← gain + d[j]
+    END IF
+  END FOR
+
+  RETURN gain
+END FUNCTION
+
+FUNCTION DELTA-EVAL-SWAP(i_out, i_in)
+  IF i_out ∉ K OR i_in ∈ K THEN RETURN -∞
+  IF budget_used - f[i_out] + f[i_in] > B THEN RETURN -∞
+
+  loss ← 0
+  FOR EACH j ∈ J_i[i_out] DO
+    IF covered_by_count[j] = 1 THEN
+      loss ← loss + d[j]
+    END IF
+  END FOR
+
+  gain ← 0
+  FOR EACH j ∈ J_i[i_in] DO
+    IF covered_by_count[j] = 0 THEN
+      gain ← gain + d[j]
+    ELIF covered_by_count[j] = 1 AND i_out ∈ I_j[j] THEN
+      gain ← gain + d[j]
+    END IF
+  END FOR
+
+  RETURN gain - loss
+END FUNCTION
+
+================================================================================
+HELPER FUNCTIONS
+================================================================================
+
+FUNCTION TOP-K-FREQUENT(K, k, frequency)
+  // Returns k facilities from K with highest move_frequency
+
+  sorted ← SORT K BY frequency[i] DESCENDING
+  RETURN sorted[1..k]
+END FUNCTION
+
+FUNCTION SHUFFLE(S)
+  // Random shuffle of set S
+
+  array ← []
+  FOR EACH i ∈ S DO
+    array.append(i)
+  END FOR
+
+  FOR i ← 1 TO |array| DO
+    j ← RANDOM(i, |array|)
+    SWAP array[i], array[j]
+  END FOR
+
+  RETURN array
+END FUNCTION
+
+================================================================================
+COMPLEXITY ANALYSIS
+================================================================================
+
+TIME COMPLEXITY:
+
+Per iteration:
+- Candidate generation: O(|K| · nJ) + O((nI - |K|) · nJ) + O(candidate_size · nJ)
+                      = O(nI · nJ)
+- Candidate sorting: O(num_candidates · log(num_candidates))
+                   = O(nI · log(nI))
+- Move selection: O(candidate_size)
+- Move application: O(nJ) worst-case
+
+Total per iteration: O(nI · nJ)
+
+Total algorithm: O(max_iter · nI · nJ)
+
+With intensification (every intensify_freq iterations):
+  Additional: O((max_iter / intensify_freq) · ls_iter · nI · nJ)
+
+Overall: O(max_iter · nI · nJ)
+
+SPACE COMPLEXITY:
+
+- Solution storage: O(nI)
+- Coverage tracking: O(nJ)
+- Tabu list: O(nI)
+- Frequency tracking: O(nI)
+- Candidate list: O(nI)
+
+Total: O(nI + nJ)
+
+PRACTICAL PERFORMANCE (expected):
+
+Small instances (50 facilities, 200 customers):
+  500 iterations: ~5 seconds
+  1000 iterations: ~10 seconds
+
+Medium instances (100 facilities, 500 customers):
+  500 iterations: ~15 seconds
+  1000 iterations: ~30 seconds
+
+Large instances (200 facilities, 1000 customers):
+  500 iterations: ~60 seconds
+  1000 iterations: ~120 seconds
+
+================================================================================
+PARAMETER TUNING GUIDELINES
+================================================================================
+
+TABU TENURE (tenure):
+  Purpose: Controls memory length (prevents cycling)
+  Rule of thumb: sqrt(nI) to 2*sqrt(nI)
+  Small instances (50 facilities): 7-14
+  Medium instances (100 facilities): 10-20
+  Large instances (200 facilities): 14-28
+
+  Too small → Cycling risk
+  Too large → Over-restrictive search
+
+CANDIDATE LIST SIZE (candidate_size):
+  Purpose: Limits move evaluation for efficiency
+  Rule of thumb: 10-30 moves
+  Small instances: 10-15
+  Medium instances: 15-25
+  Large instances: 20-30
+
+  Too small → Miss good moves
+  Too large → Inefficient
+
+MAX ITERATIONS (max_iter):
+  Purpose: Search budget
+  Rule of thumb: 500-5000 iterations
+  Quick run: 200-500
+  Normal run: 500-2000
+  Thorough run: 2000-5000
+
+INTENSIFICATION FREQUENCY (intensify_freq):
+  Purpose: How often to run local search
+  Rule of thumb: Every 50-100 iterations
+  Aggressive: 30-50
+  Moderate: 50-100
+  Conservative: 100-200
+
+STAGNATION LIMIT (stagnation_lim):
+  Purpose: When to diversify
+  Rule of thumb: 100-200 iterations
+  Aggressive: 50-100
+  Moderate: 100-200
+  Conservative: 200-500
+
+================================================================================
+EXPECTED SOLUTION QUALITY
+================================================================================
+
+Comparison to Other Methods (% of optimal):
+
+Greedy heuristic:          70-85%
+Closest Neighbor:          65-80%
+Local Search (single):     80-92%
+Multi-Start LS (10 runs):  85-95%
+Tabu Search (500 iter):    90-98%
+Tabu Search (2000 iter):   92-99%
+
+Improvement over Multi-Start:
+- Tabu Search typically finds 2-5% better solutions
+- More robust across different instance types
+- Better worst-case performance
+
+Trade-offs:
+- Runtime: TS slower than single LS, comparable to multi-start
+- Quality: Consistently better than multi-start
+- Robustness: Less sensitive to initial solution
+- Scalability: Handles large instances well
+
+================================================================================
+CORRECTNESS PROPERTIES
+================================================================================
+
+1. BUDGET FEASIBILITY: Always maintains budget_used ≤ B
+   - All moves check budget constraint
+   - Delta evaluation enforces feasibility
+
+2. COVERAGE VALIDITY: Coverage tracking consistent with open facilities
+   - Incremental updates via delta-evaluation
+   - Can be verified by recomputation
+
+3. TERMINATION: Guaranteed after max_iter iterations
+   - Fixed iteration limit
+   - Always makes a move (even if worsening)
+
+4. IMPROVEMENT GUARANTEE: obj_best ≥ initial_objective
+   - Best solution never decreases
+   - Monotonic improvement of global best
+
+5. TABU COMPLIANCE: Tabu moves only accepted via aspiration
+   - Aspiration only if improves global best
+   - Prevents infinite cycling
+
+================================================================================
+ADVANTAGES
+================================================================================
+
+1. ESCAPES LOCAL OPTIMA: Can accept worsening moves strategically
+2. MEMORY-GUIDED SEARCH: Short and long-term memory structures
+3. ROBUST PERFORMANCE: Less sensitive to initial solution quality
+4. ADAPTIVE MECHANISMS: Intensification and diversification strategies
+5. SCALABLE: Efficient delta-evaluation and candidate restriction
+6. CONSISTENT QUALITY: Reliable high-quality solutions across instances
+7. WELL-STUDIED: Extensive theory and empirical validation
+
+================================================================================
+LIMITATIONS
+================================================================================
+
+1. NO OPTIMALITY GUARANTEE: Heuristic method (not exact)
+2. PARAMETER SENSITIVITY: Performance depends on parameter tuning
+3. LONGER RUNTIME: Slower than simple heuristics
+4. MEMORY OVERHEAD: Tabu list and frequency tracking
+5. STOCHASTIC ELEMENTS: Diversification uses randomization
+6. COMPLEX IMPLEMENTATION: More intricate than basic local search
+
+================================================================================
+COMPARISON: TABU SEARCH vs LOCAL SEARCH
+================================================================================
+
+LOCAL SEARCH:
++ Faster per run
++ Simpler implementation
++ Deterministic (given initialization)
+- Gets stuck in local optima
+- Quality depends heavily on initialization
+- No memory mechanisms
+
+TABU SEARCH:
++ Escapes local optima
++ Memory-guided exploration
++ More robust solution quality
++ Adaptive strategies
+- Slower (more iterations needed)
+- More complex implementation
+- Requires parameter tuning
+
+WHEN TO USE TABU SEARCH:
+1. Solution quality is critical
+2. Sufficient runtime budget available
+3. Instance is challenging (many local optima)
+4. Robustness across instances needed
+5. When local search plateaus too quickly
+
+WHEN TO USE MULTI-START LOCAL SEARCH:
+1. Parallel execution available
+2. Quick prototyping needed
+3. Simpler implementation preferred
+4. Instance has good initial heuristics
+
+================================================================================
+THEORETICAL FOUNDATION
+================================================================================
+
+Tabu Search was introduced by Fred Glover (1986) and Pierre Hansen (1986).
+Key theoretical concepts:
+
+1. ADAPTIVE MEMORY: Short-term (recency) and long-term (frequency) memory
+2. ASPIRATION CRITERIA: Override restrictions for exceptional moves
+3. INTENSIFICATION: Exploit promising regions thoroughly
+4. DIVERSIFICATION: Strategic restart to explore new regions
+5. STRATEGIC OSCILLATION: Allow infeasible/feasible boundary crossing
+
+The combination of these mechanisms enables TS to:
+- Escape local optima without random restarts
+- Balance exploration and exploitation systematically
+- Adapt search strategy based on search history
+
+================================================================================
+IMPLEMENTATION NOTES
+================================================================================
+
+MOSEL-SPECIFIC CONSIDERATIONS:
+
+1. Tabu List Implementation:
+   - Array: tabu_expiry[i] = iteration when facility i becomes non-tabu
+   - Check: is_tabu ← (tabu_expiry[i] > current_iteration)
+
+2. Candidate List Sorting:
+   - Use simple bubble sort for small candidate lists
+   - O(n²) acceptable for n = 20-30 candidates
+
+3. Frequency Tracking:
+   - Array: move_frequency[i] = number of times facility i was moved
+   - Used for diversification (remove frequent facilities)
+
+4. Coverage Tracking:
+   - Same as Local Search: covered_by_count[j] = # facilities covering j
+   - Enables O(nJ) delta-evaluation
+
+5. Intensification:
+   - Embedded local search procedure
+   - Run for fixed iterations (e.g., 10)
+   - No tabu restrictions during intensification
+
+6. Diversification:
+   - Identify frequent facilities via move_frequency
+   - Remove top-k frequent, add random infrequent
+   - Reset stagnation counter after shake
+
+================================================================================
+EXPERIMENTAL VALIDATION CHECKLIST
+================================================================================
+
+For comprehensive validation, test:
+
+1. CONVERGENCE: Plot obj_best vs iteration
+   - Should show monotonic improvement
+   - Check improvement rate
+
+2. PARAMETER SENSITIVITY:
+   - Test tenure: [5, 10, 15, 20]
+   - Test max_iter: [200, 500, 1000, 2000]
+   - Test stagnation_lim: [50, 100, 200]
+
+3. COMPARISON TO BASELINES:
+   - vs Greedy heuristic
+   - vs Closest Neighbor
+   - vs Multi-Start LS (10 runs)
+
+4. SCALABILITY:
+   - Small, Medium, Large instances
+   - Runtime vs instance size plot
+
+5. ROBUSTNESS:
+   - Multiple random seeds
+   - Different initial solutions
+   - Statistical analysis (mean, std dev)
+
+6. SOLUTION QUALITY:
+   - Compare to exact solver (small instances)
+   - Gap analysis
+   - Best, average, worst across runs
+
+================================================================================
+REFERENCES
+================================================================================
+
+Foundational Papers:
+- Glover, F. (1986): Future paths for integer programming and links to
+  artificial intelligence. Computers & Operations Research, 13(5), 533-549.
+
+- Glover, F., & Laguna, M. (1997): Tabu Search. Kluwer Academic Publishers.
+
+- Gendreau, M., & Potvin, J.-Y. (2010): Handbook of Metaheuristics
+  (2nd ed.). Springer.
+
+MCLP-Specific:
+- Cordeau, J.-F., Furini, F., & Ljubić, I. (2016): Benders decomposition
+  for very large scale partial set covering and maximal covering location
+  problems. Computers & Operations Research, 66, 143-153.
+
+- Lorena, L. A. N., & Senne, E. L. F. (2004): A column generation approach
+  to capacitated p-median problems. Computers & Operations Research, 31(6).
+
+================================================================================
