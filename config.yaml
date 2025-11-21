@@ -1,0 +1,37 @@
+# Master configuration for MCLP experiments
+
+instance:
+  path: "data/test_tiny.json"
+  format: "json"
+
+seed: 42
+
+# Algorithms to run
+algorithms:
+  - greedy
+  - cn
+  - ls
+  - ts
+
+# Local Search parameters
+ls_params:
+  strategy: "first"  # first or best improvement
+  max_moves: 200
+  multistart_count: 20
+
+# Tabu Search parameters
+ts_params:
+  tenure: 10
+  candidate_list_size: 20
+  max_iterations: 15000
+  stagnation_limit: 1000
+  intensification_freq: 50
+
+# Logging configuration
+logging:
+  level: "INFO"
+  output_dir: "logs/"
+
+# Results output
+results:
+  output_csv: "results/results.csv"
