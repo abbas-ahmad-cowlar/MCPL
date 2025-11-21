@@ -1,0 +1,417 @@
+(!******************************************************
+   Maximum Covering Location Problem (MCLP)
+   Exact Compact Formulation
+
+   Reference: Cordeau, Furini & Ljubić (2016)
+   "Benders decomposition for very large scale partial set
+   covering and maximal covering location problems"
+
+   Mathematical Model (Equations 2, 4-7):
+
+   Maximize   Σ(j∈J) d[j] * z[j]                     (2)
+
+   Subject to:
+     Σ(i∈I_j) y[i] >= z[j]         ∀ j ∈ J         (4)
+     Σ(i∈I) f[i] * y[i] <= B                        (5)
+     y[i] ∈ {0,1}                  ∀ i ∈ I         (6)
+     z[j] ∈ [0,1]                  ∀ j ∈ J         (7)
+
+   Variables:
+     y[i] = 1 if facility i is opened, 0 otherwise
+     z[j] = 1 if customer j is covered, 0 otherwise
+          (can be relaxed to [0,1] without loss of optimality)
+
+   Author: MCLP Migration Team
+   Date: November 2025
+   Phase: 2 - Exact Model Implementation
+******************************************************!)
+
+model "MCLP_Exact"
+  uses "mmxprs"  ! Xpress Optimizer
+
+  !==================================================
+  ! PARAMETERS AND OPTIONS
+  !==================================================
+
+  parameters
+    DATA_FILE = "data/test_tiny.dat"  ! Default instance
+    TIME_LIMIT = 3600                  ! Solver time limit (seconds)
+    MIP_GAP = 0.01                     ! Optimality gap (1%)
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
+    RELAX_Z = 1                        ! Relax z variables to [0,1] (recommended)
+  end-parameters
+
+  !==================================================
+  ! FORWARD DECLARATIONS
+  !==================================================
+
+  declarations
+    nI, nJ: integer                    ! Number of facilities and customers
+    BUDGET: real                       ! Total budget available
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DIMENSIONS
+  !==================================================
+
+  initializations from DATA_FILE
+    nI nJ BUDGET
+  end-initializations
+
+  if VERBOSE >= 1 then
+    writeln("\n", "="*70)
+    writeln("MCLP EXACT MODEL - Compact Formulation")
+    writeln("="*70)
+    writeln("Instance: ", DATA_FILE)
+    writeln("Facilities: ", nI, ", Customers: ", nJ)
+    writeln("Budget: ", BUDGET)
+    writeln("="*70, "\n")
+  end-if
+
+  !==================================================
+  ! MAIN DECLARATIONS (with proper dimensions)
+  !==================================================
+
+  declarations
+    FACILITIES: set of integer         ! Set of facility indices
+    CUSTOMERS: set of integer          ! Set of customer indices
+    COST: array(0..nI-1) of real      ! Facility opening costs f[i]
+    DEMAND: array(0..nJ-1) of real    ! Customer demands d[j]
+    I_j: array(0..nJ-1) of set of integer  ! Facilities covering customer j
+    J_i: array(0..nI-1) of set of integer  ! Customers covered by facility i
+  end-declarations
+
+  !==================================================
+  ! LOAD INSTANCE DATA
+  !==================================================
+
+  initializations from DATA_FILE
+    FACILITIES CUSTOMERS
+    COST DEMAND
+    I_j as "COVERAGE_I_j"
+    J_i as "COVERAGE_J_i"
+  end-initializations
+
+  !==================================================
+  ! DATA VALIDATION
+  !==================================================
+
+  if VERBOSE >= 2 then
+    writeln("Validating instance data...")
+  end-if
+
+  ! Check 1: All customers have at least one covering facility
+  forall(j in CUSTOMERS) do
+    if card(I_j(j)) = 0 then
+      writeln("ERROR: Customer ", j, " has no covering facilities!")
+      exit(1)
+    end-if
+  end-do
+
+  ! Check 2: Budget is sufficient to open at least one facility
+  min_cost := min(i in FACILITIES) COST(i)
+  if BUDGET < min_cost then
+    writeln("ERROR: Budget ", BUDGET, " too small (min cost = ", min_cost, ")")
+    exit(1)
+  end-if
+
+  ! Check 3: Coverage matrix consistency
+  total_arcs_I_j := sum(j in CUSTOMERS) card(I_j(j))
+  total_arcs_J_i := sum(i in FACILITIES) card(J_i(i))
+  if total_arcs_I_j <> total_arcs_J_i then
+    writeln("ERROR: Coverage matrix inconsistency!")
+    writeln("  I_j arcs: ", total_arcs_I_j, ", J_i arcs: ", total_arcs_J_i)
+    exit(1)
+  end-if
+
+  ! Compute instance statistics
+  total_facility_cost := sum(i in FACILITIES) COST(i)
+  total_demand := sum(j in CUSTOMERS) DEMAND(j)
+  coverage_density := total_arcs_I_j / (nI * nJ)
+
+  if VERBOSE >= 1 then
+    writeln("Instance Statistics:")
+    writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
+    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+    writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
+    writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%")
+    writeln("  Coverage arcs: ", total_arcs_I_j)
+    writeln("✓ Data validation passed\n")
+  end-if
+
+  !==================================================
+  ! DECISION VARIABLES
+  !==================================================
+
+  declarations
+    y: array(FACILITIES) of mpvar      ! y[i] = 1 if facility i is opened
+    z: array(CUSTOMERS) of mpvar       ! z[j] = 1 if customer j is covered
+  end-declarations
+
+  ! Variable bounds
+  forall(i in FACILITIES) do
+    y(i) is_binary                     ! Equation (6): y[i] ∈ {0,1}
+  end-do
+
+  if RELAX_Z = 1 then
+    ! Relaxation: z can be continuous (monotone objective)
+    forall(j in CUSTOMERS) do
+      z(j) is_continuous
+      z(j) >= 0
+      z(j) <= 1                        ! Equation (7): z[j] ∈ [0,1] (relaxed)
+    end-do
+    if VERBOSE >= 1 then
+      writeln("Variable relaxation: z[j] ∈ [0,1] (continuous)")
+    end-if
+  else
+    ! Strict binary formulation
+    forall(j in CUSTOMERS) do
+      z(j) is_binary                   ! Equation (7): z[j] ∈ {0,1}
+    end-do
+    if VERBOSE >= 1 then
+      writeln("Variable formulation: z[j] ∈ {0,1} (binary)")
+    end-if
+  end-if
+
+  !==================================================
+  ! OBJECTIVE FUNCTION
+  !==================================================
+
+  ! Equation (2): Maximize total covered demand
+  Objective := sum(j in CUSTOMERS) DEMAND(j) * z(j)
+
+  !==================================================
+  ! CONSTRAINTS
+  !==================================================
+
+  declarations
+    Coverage: array(CUSTOMERS) of linctr   ! Coverage constraints (4)
+    Budget_Constraint: linctr              ! Budget constraint (5)
+  end-declarations
+
+  ! Equation (4): Coverage constraints
+  ! For each customer j, at least one covering facility must be open
+  ! to cover j (i.e., if z[j] = 1)
+  forall(j in CUSTOMERS) do
+    Coverage(j) := sum(i in I_j(j)) y(i) >= z(j)
+  end-do
+
+  ! Equation (5): Budget constraint
+  ! Total cost of open facilities must not exceed budget
+  Budget_Constraint := sum(i in FACILITIES) COST(i) * y(i) <= BUDGET
+
+  if VERBOSE >= 1 then
+    writeln("Model Statistics:")
+    writeln("  Variables: ", nI, " (y) + ", nJ, " (z) = ", nI + nJ)
+    writeln("  Binary variables: ", nI, " (y)")
+    if RELAX_Z = 1 then
+      writeln("  Continuous variables: ", nJ, " (z)")
+    else
+      writeln("  Binary variables (z): ", nJ)
+    end-if
+    writeln("  Coverage constraints: ", nJ)
+    writeln("  Budget constraint: 1")
+    writeln("  Total constraints: ", nJ + 1, "\n")
+  end-if
+
+  !==================================================
+  ! SOLVER CONFIGURATION
+  !==================================================
+
+  ! Set solver parameters
+  setparam("XPRS_MAXTIME", TIME_LIMIT)   ! Time limit
+  setparam("XPRS_MIPRELSTOP", MIP_GAP)   ! Optimality gap
+
+  if VERBOSE >= 2 then
+    setparam("XPRS_VERBOSE", true)       ! Detailed solver output
+  else
+    setparam("XPRS_VERBOSE", false)
+  end-if
+
+  !==================================================
+  ! SOLVE MODEL
+  !==================================================
+
+  if VERBOSE >= 1 then
+    writeln("Starting optimization...")
+    writeln("  Time limit: ", TIME_LIMIT, " seconds")
+    writeln("  MIP gap: ", MIP_GAP * 100, "%")
+    writeln("="*70)
+  end-if
+
+  start_time := gettime
+  maximize(Objective)
+  solve_time := gettime - start_time
+
+  !==================================================
+  ! SOLUTION STATUS
+  !==================================================
+
+  solution_status := getprobstat
+
+  if VERBOSE >= 1 then
+    writeln("\n", "="*70)
+    writeln("SOLUTION STATUS")
+    writeln("="*70)
+  end-if
+
+  case solution_status of
+    XPRS_OPT: begin
+      if VERBOSE >= 1 then
+        writeln("Status: OPTIMAL")
+      end-if
+      is_optimal := true
+    end
+    XPRS_UNF: begin
+      if VERBOSE >= 1 then
+        writeln("Status: UNFINISHED (time limit or interrupted)")
+      end-if
+      is_optimal := false
+    end
+    XPRS_INF: begin
+      writeln("Status: INFEASIBLE")
+      exit(1)
+    end
+    XPRS_UNB: begin
+      writeln("Status: UNBOUNDED")
+      exit(1)
+    end
+    else begin
+      writeln("Status: UNKNOWN (", solution_status, ")")
+      is_optimal := false
+    end
+  end-case
+
+  !==================================================
+  ! EXTRACT SOLUTION
+  !==================================================
+
+  if getobjval > -infinity then
+    ! Get objective value
+    objective_value := getobjval
+    best_bound := getparam("XPRS_BESTBOUND")
+    optimality_gap := 0.0
+
+    if abs(objective_value) > 1e-6 then
+      optimality_gap := abs(best_bound - objective_value) / abs(objective_value) * 100
+    end-if
+
+    ! Extract open facilities
+    declarations
+      open_facilities: set of integer
+      covered_customers: set of integer
+    end-declarations
+
+    forall(i in FACILITIES) do
+      if getsol(y(i)) > 0.5 then
+        open_facilities += {i}
+      end-if
+    end-do
+
+    ! Extract covered customers
+    forall(j in CUSTOMERS) do
+      if getsol(z(j)) > 0.5 then
+        covered_customers += {j}
+      end-if
+    end-do
+
+    ! Compute solution metrics
+    budget_used := sum(i in open_facilities) COST(i)
+    num_open := card(open_facilities)
+    num_covered := card(covered_customers)
+    coverage_pct := num_covered / nJ * 100
+    demand_covered := sum(j in covered_customers) DEMAND(j)
+    demand_pct := demand_covered / total_demand * 100
+
+    !==================================================
+    ! OUTPUT RESULTS
+    !==================================================
+
+    if VERBOSE >= 1 then
+      writeln("\nOBJECTIVE:")
+      writeln("  Covered demand: ", strfmt(objective_value, 12, 2))
+      writeln("  Best bound: ", strfmt(best_bound, 12, 2))
+      if not is_optimal then
+        writeln("  Optimality gap: ", strfmt(optimality_gap, 8, 2), "%")
+      end-if
+
+      writeln("\nSOLUTION:")
+      writeln("  Open facilities: ", num_open, " / ", nI)
+      writeln("  Covered customers: ", num_covered, " / ", nJ,
+              " (", strfmt(coverage_pct, 5, 1), "%)")
+      writeln("  Budget used: ", strfmt(budget_used, 10, 2),
+              " / ", strfmt(BUDGET, 10, 2),
+              " (", strfmt(budget_used/BUDGET*100, 5, 1), "%)")
+      writeln("  Total demand covered: ", strfmt(demand_covered, 10, 2),
+              " / ", strfmt(total_demand, 10, 2),
+              " (", strfmt(demand_pct, 5, 1), "%)")
+
+      writeln("\nCOMPUTATIONAL:")
+      writeln("  Solve time: ", strfmt(solve_time, 8, 2), " seconds")
+      writeln("  Nodes explored: ", getparam("XPRS_NODES"))
+
+      writeln("\nOPEN FACILITIES:")
+      write(" ")
+      forall(i in open_facilities)
+        write(" ", i)
+      writeln("")
+
+      if VERBOSE >= 2 then
+        writeln("\nFACILITY DETAILS:")
+        forall(i in open_facilities) do
+          writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
+                  ", covers ", card(J_i(i)), " customers")
+        end-do
+
+        writeln("\nCOVERED CUSTOMERS:")
+        forall(j in covered_customers) do
+          num_covering := sum(i in I_j(j) | i in open_facilities) 1
+          writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
+                  ", covered by ", num_covering, " facilities")
+        end-do
+      end-if
+    end-if
+
+    writeln("\n", "="*70)
+
+    !==================================================
+    ! SOLUTION VALIDATION
+    !==================================================
+
+    if VERBOSE >= 2 then
+      writeln("\nValidating solution...")
+
+      ! Check budget feasibility
+      if budget_used > BUDGET + 1e-6 then
+        writeln("ERROR: Budget constraint violated!")
+        writeln("  Used: ", budget_used, ", Budget: ", BUDGET)
+      else
+        writeln("✓ Budget constraint satisfied")
+      end-if
+
+      ! Check coverage constraints
+      violations := 0
+      forall(j in CUSTOMERS) do
+        if getsol(z(j)) > 0.5 then
+          num_covering := sum(i in I_j(j)) getsol(y(i))
+          if num_covering < 0.5 then
+            writeln("ERROR: Customer ", j, " marked covered but no facility open!")
+            violations += 1
+          end-if
+        end-if
+      end-do
+
+      if violations = 0 then
+        writeln("✓ All coverage constraints satisfied")
+      else
+        writeln("ERROR: ", violations, " coverage constraint violations")
+      end-if
+
+      writeln("✓ Solution validation complete\n")
+    end-if
+
+  else
+    writeln("No solution found")
+  end-if
+
+end-model
