@@ -1,0 +1,17 @@
+,,objective,objective,runtime_sec,runtime_sec
+,,mean,std,mean,std
+instance,algorithm,,,,
+random_I100_J500_B15.0_R6.5_s42,closest_neighbor,20289.0,0.0,0.0,0.0
+random_I100_J500_B15.0_R6.5_s42,greedy,20248.0,0.0,0.0,0.0
+random_I100_J500_B20.0_R6.5_s43,closest_neighbor,20643.0,0.0,0.0,0.0
+random_I100_J500_B20.0_R6.5_s43,greedy,22221.0,0.0,0.0,0.0
+random_I200_J1000_B20.0_R5.5_s42,closest_neighbor,46123.0,0.0,0.0,0.0
+random_I200_J1000_B20.0_R5.5_s42,greedy,46173.0,0.0,0.02,0.0
+random_I200_J1000_B30.0_R5.0_s43,closest_neighbor,38043.0,0.0,0.0,0.0
+random_I200_J1000_B30.0_R5.0_s43,greedy,43862.0,0.0,0.02,0.0
+random_I50_J200_B10.0_R7.0_s43,closest_neighbor,7107.0,0.0,0.0,0.0
+random_I50_J200_B10.0_R7.0_s43,greedy,7449.0,0.0,0.0,0.0
+random_I50_J200_B10.0_R7.0_s44,closest_neighbor,6183.0,0.0,0.0,0.0
+random_I50_J200_B10.0_R7.0_s44,greedy,7646.0,0.0,0.0,0.0
+test_tiny,closest_neighbor,142.0,0.0,0.0,0.0
+test_tiny,greedy,142.0,0.0,0.0,0.0
