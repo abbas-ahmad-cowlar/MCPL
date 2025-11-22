@@ -52,15 +52,30 @@ Mosel/
 
 ## 🚀 Quick Start
 
+### ONE-CLICK AUTOMATION (Recommended)
+
+Run everything automatically - data conversion, all algorithms, results analysis, visualizations:
+
+```bash
+cd Mosel
+bash run_all.sh
+```
+
+This script runs all 6 algorithms on all 7 instances, generates comparison tables, creates visualizations, and produces a client-ready report.
+
+**Time**: 30-60 minutes (fully automated)
+
 ### Prerequisites
 
-- **FICO Xpress Mosel** compiler (version 5.0+)
-- **FICO Xpress Optimizer** (valid license)
-- **Python 3.8+** (for data conversion utilities)
+- **FICO Xpress Mosel** compiler (version 5.0+) - Community Edition works!
+- **FICO Xpress Optimizer** (valid license or Community Edition)
+- **Python 3.8+** (for utilities and visualization)
 
 ### Installation
 
 See [docs/SETUP.md](docs/SETUP.md) for detailed installation instructions.
+
+**For complete beginners**: See [BEGINNER_GUIDE.md](BEGINNER_GUIDE.md) - maps all client requirements to specific files.
 
 ### Running the Conversion Utility
 
