@@ -24,7 +24,8 @@
    Phase: 3 - Heuristic Implementations
 ******************************************************!)
 
-model "MCLP_Closest_Neighbor"
+model "MCLP_ClosestNeighbor"
+  uses "mmsystem"
 
   !==================================================
   ! PARAMETERS
@@ -53,14 +54,26 @@ model "MCLP_Closest_Neighbor"
     nI nJ BUDGET
   end-initializations
 
+  declarations
+    ! Additional variables
+    covered: set of integer
+    best_fac: integer
+    customer: integer
+    cust_array: array(range) of integer
+    demand_array: array(range) of real
+    temp_d: real
+    temp_c: integer
+    best_cost: real
+  end-declarations
+
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MCLP CLOSEST NEIGHBOR HEURISTIC")
-    writeln("="*70)
+    writeln("======================================================================")
     writeln("Instance: ", DATA_FILE)
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
-    writeln("="*70, "\n")
+    writeln("======================================================================", "\n")
   end-if
 
   !==================================================
@@ -87,10 +100,52 @@ model "MCLP_Closest_Neighbor"
     J_i as "COVERAGE_J_i"
   end-initializations
 
+  !==================================================
+  ! VARIABLE DECLARATIONS
+  !==================================================
+
+  declarations
+    ! Statistics variables
+    total_facility_cost: real
+    total_demand: real
+    coverage_density: real
+    total_arcs: integer
+    
+    ! Timing variables
+    start_time: real
+    solve_time: real
+    
+    ! Algorithm variables
+    uncovered_customers: set of integer
+    best_facility: integer
+    best_score: real
+    priority_score: real
+    potential_coverage: set of integer
+    new_coverage: set of integer
+    coverage_gain: real
+    
+    ! Solution metrics
+    num_open: integer
+    num_covered: integer
+    objective_value: real
+    coverage_pct: real
+    demand_pct: real
+    budget_pct: real
+    customers_covered: integer
+    covering_facilities: integer
+    violations: integer
+    covering_count: integer
+    recomputed_obj: real
+  end-declarations
+
   ! Compute instance statistics
   total_facility_cost := sum(i in FACILITIES) COST(i)
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
-  coverage_density := sum(j in CUSTOMERS) card(I_j(j)) / (nI * nJ)
+  total_arcs := 0
+  forall(j in CUSTOMERS) do
+    total_arcs += getsize(I_j(j))
+  end-do
+  coverage_density := total_arcs / (nI * nJ)
 
   if VERBOSE >= 1 then
     writeln("Instance Statistics:")
@@ -137,9 +192,12 @@ model "MCLP_Closest_Neighbor"
 
   if VERBOSE >= 2 then
     writeln("Customers sorted by demand (descending):")
-    forall(i in 1..min(10, nJ))
+    limit := 10
+    if nJ < 10 then limit := nJ; end-if
+    forall(i in 1..limit) do
       writeln("  ", i, ". Customer ", customer_list(i),
               " (demand: ", strfmt(demand_list(i), 8, 2), ")")
+    end-do
     if nJ > 10 then
       writeln("  ... (", nJ - 10, " more)")
     end-if
@@ -167,12 +225,12 @@ model "MCLP_Closest_Neighbor"
 
   if VERBOSE >= 1 then
     writeln("Starting Closest Neighbor Construction...")
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
   end-if
 
   ! Iterate through customers in demand order
-  forall(idx in 1..nJ) do
-    customer := customer_list(idx)
+  forall(k in 1..nJ) do
+    customer := customer_list(k)
 
     ! Skip if already covered or budget exhausted
     if customer in covered_customers or budget_used >= BUDGET then
@@ -181,8 +239,8 @@ model "MCLP_Closest_Neighbor"
 
     ! Find closest (cheapest) uncovered facility for this customer
     best_facility := -1
-    best_distance := infinity  ! Using cost as distance proxy
-    best_cost := infinity
+    best_distance := MAX_REAL  ! Using cost as distance proxy
+    best_cost := MAX_REAL
 
     forall(i in I_j(customer)) do
       ! Skip if already open
@@ -216,7 +274,7 @@ model "MCLP_Closest_Neighbor"
       facilities_opened += 1
 
       if VERBOSE >= 2 then
-        new_covered := card(J_i(best_facility))
+        new_covered := getsize(J_i(best_facility))
         writeln("  [Cust ", strfmt(customer, 3), ", demand=", strfmt(DEMAND(customer), 6, 2),
                 "] Open facility ", strfmt(best_facility, 3),
                 ": cost=", strfmt(best_cost, 6, 2),
@@ -231,8 +289,8 @@ model "MCLP_Closest_Neighbor"
   ! COMPUTE SOLUTION METRICS
   !==================================================
 
-  num_open := card(open_facilities)
-  num_covered := card(covered_customers)
+  num_open := getsize(open_facilities)
+  num_covered := getsize(covered_customers)
   objective_value := sum(j in covered_customers) DEMAND(j)
   coverage_pct := num_covered / nJ * 100
   demand_pct := objective_value / total_demand * 100
@@ -243,7 +301,7 @@ model "MCLP_Closest_Neighbor"
   !==================================================
 
   if VERBOSE >= 1 then
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
     writeln("\nCLOSEST NEIGHBOR SOLUTION:")
     writeln("  Customers processed: ", nJ)
     writeln("  Facilities opened: ", facilities_opened)
@@ -268,22 +326,24 @@ model "MCLP_Closest_Neighbor"
   if VERBOSE >= 2 then
     writeln("\nFACILITY DETAILS:")
     forall(i in open_facilities) do
-      customers_covered := card(J_i(i) * covered_customers)
+      customers_covered := getsize(J_i(i) * covered_customers)
       writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
               ", covers ", customers_covered, " customers")
     end-do
 
     writeln("\nCOVERED CUSTOMERS:")
     forall(j in covered_customers) do
-      covering_facilities := card(I_j(j) * open_facilities)
+      covering_facilities := getsize(I_j(j) * open_facilities)
       writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
               ", covered by ", covering_facilities, " facilities")
     end-do
 
     writeln("\nUNCOVERED HIGH-DEMAND CUSTOMERS:")
     uncovered_count := 0
-    forall(idx in 1..min(10, nJ)) do
-      customer := customer_list(idx)
+    limit_check := 10
+    if nJ < 10 then limit_check := nJ; end-if
+    forall(k in 1..limit_check) do
+      customer := customer_list(k)
       if customer not in covered_customers then
         writeln("  Customer ", strfmt(customer, 3), ": demand=",
                 strfmt(DEMAND(customer), 8, 2), " (NOT COVERED)")
@@ -295,7 +355,7 @@ model "MCLP_Closest_Neighbor"
     end-if
   end-if
 
-  writeln("\n", "="*70)
+  writeln("\n", "======================================================================")
 
   !==================================================
   ! SOLUTION VALIDATION
