@@ -104,6 +104,8 @@ model "MCLP_Multi_Start"
     improvement: real
     runtime: real
     start_time: real
+    new_cust: set of integer
+    ratio: real
   end-declarations
 
   if VERBOSE >= 1 then
