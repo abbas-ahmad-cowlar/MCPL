@@ -68,6 +68,16 @@ model "MCLP_LocalSearch"
     returned: real
     swap_idx: integer
     idx: integer
+    gain: real
+    start_time: real
+    iteration: integer
+    improvements: integer
+    best_move_type: string
+    delta: real
+    best_i: integer
+    best_j: integer
+    found_improvement: boolean
+    recomputed_obj: real
   end-declarations
 
   if VERBOSE >= 1 then
