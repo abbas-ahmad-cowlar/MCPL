@@ -80,7 +80,7 @@ model "MCLP_Tabu_Search"
     loss: real
     delta: real
     gain: real
-    
+
     ! Added declarations
     swap_idx: integer
     added: integer
@@ -112,6 +112,26 @@ model "MCLP_Tabu_Search"
     iteration: integer
     start_time: real
     total_demand: real
+
+    ! Local search variables
+    ls_iter: integer
+    ls_best_delta: real
+    ls_best_move: string
+    ls_best_i: integer
+    ls_best_j: integer
+    ls_found: boolean
+
+    ! Diversification variables
+    freq_array: array(range) of integer
+    num_shake: integer
+    loop_idx: integer
+    max_freq: integer
+    max_idx: integer
+    rem_fac: integer
+    cand_array: array(range) of integer
+    removed: integer
+    add_idx: integer
+    cust_idx: integer
   end-declarations
 
   if VERBOSE >= 1 then
@@ -468,7 +488,7 @@ model "MCLP_Tabu_Search"
 
       if (not is_tabu or aspiration) and delta > best_delta then
         best_delta := delta
-        best_idx := idx
+        best_idx := cand_idx
 
         ! Accept first good move (first-improvement variant)
         if delta > 0 then
@@ -680,10 +700,21 @@ model "MCLP_Tabu_Search"
 
     if stagnation_counter >= STAGNATION_LIMIT then
       if VERBOSE >= 1 then
+        writeln("  [Iter ", iteration, "] DIVERSIFICATION: Shaking solution...")
+      end-if
+
+      ! Build frequency arrays
+      delcell(freq_array)
+      delcell(fac_array)
+      idx := 1
+      forall(i in FACILITIES) do
         freq_array(idx) := move_frequency(i)
         fac_array(idx) := i
         idx += 1
       end-do
+
+      ! Calculate shake amount
+      num_shake := maxlist(1, ceil(getsize(K) * 0.3))
 
       ! Remove high-frequency facilities
       removed := 0
@@ -728,13 +759,22 @@ model "MCLP_Tabu_Search"
       end-do
 
       added := 0
-            forall(j in J_i(add_fac)) do
-              if covered_by_count(j) = 0 then
-                objective += DEMAND(j)
-              end-if
-              covered_by_count(j) += 1
-            end-do
-            added += 1
+      forall(add_idx in 1..num_shake) do
+        if getsize(cand_array) > 0 then
+          rand_idx := ceil(random * getsize(cand_array))
+          if rand_idx >= 1 and rand_idx <= getsize(cand_array) then
+            add_fac := cand_array(rand_idx)
+            if budget_used + COST(add_fac) <= BUDGET then
+              K += {add_fac}
+              budget_used += COST(add_fac)
+              forall(j in J_i(add_fac)) do
+                if covered_by_count(j) = 0 then
+                  objective += DEMAND(j)
+                end-if
+                covered_by_count(j) += 1
+              end-do
+              added += 1
+            end-if
           end-if
         end-if
       end-do
