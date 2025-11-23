@@ -27,6 +27,7 @@
 ******************************************************!)
 
 model "MCLP_Tabu_Search"
+  uses "mmsystem"
 
   !==================================================
   ! PARAMETERS
@@ -61,14 +62,66 @@ model "MCLP_Tabu_Search"
     nI nJ BUDGET
   end-initializations
 
+  declarations
+    ! Additional variables
+    covered: set of integer
+    best_fac: integer
+    best_ratio: real
+    new_cust: set of integer
+    ratio: real
+    fac_array: array(range) of integer
+    temp: integer
+    fac: integer
+    initial_obj: real
+    improvements: integer
+    stagnation_counter: integer
+    last_improvement_iter: integer
+    num_candidates: integer
+    loss: real
+    delta: real
+    gain: real
+    
+    ! Added declarations
+    swap_idx: integer
+    added: integer
+    add_fac: integer
+    solve_time: real
+    num_open: integer
+    num_covered: integer
+    cov_count: integer
+    coverage_pct: real
+    demand_pct: real
+    budget_used_best: real
+    budget_pct: real
+    improvement: real
+    temp_delta: real
+    temp_move: string
+    temp_i: integer
+    temp_j: integer
+    best_idx: integer
+    eval_limit: integer
+    move_type: string
+    move_i: integer
+    move_j: integer
+    is_tabu: boolean
+    aspiration: boolean
+    swap_count: integer
+    idx: integer
+    rand_idx: integer
+    r_val: real
+    iteration: integer
+    start_time: real
+    total_demand: real
+  end-declarations
+
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MCLP TABU SEARCH METAHEURISTIC")
-    writeln("="*70)
+    writeln("======================================================================")
     writeln("Instance: ", DATA_FILE)
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
-    writeln("="*70, "\n")
+    writeln("======================================================================", "\n")
   end-if
 
   !==================================================
@@ -98,9 +151,6 @@ model "MCLP_Tabu_Search"
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
 
   if VERBOSE >= 1 then
-    writeln("Instance Statistics:")
-    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
-    writeln("\nTabu Search Parameters:")
     writeln("  Max iterations: ", MAX_ITERATIONS)
     writeln("  Tabu tenure: ", TABU_TENURE)
     writeln("  Candidate list size: ", CANDIDATE_SIZE)
@@ -155,7 +205,7 @@ model "MCLP_Tabu_Search"
     ! Greedy initialization
     covered := {}
 
-    while budget_used < BUDGET do
+    while (budget_used < BUDGET) do
       best_fac := -1
       best_ratio := 0.0
 
@@ -186,17 +236,20 @@ model "MCLP_Tabu_Search"
   else
     ! Random initialization
     setrandseed(SEED)
-    fac_array := []
-    forall(i in FACILITIES)
-      fac_array += [i]
+    delcell(fac_array)
+    idx := 1
+    forall(i in FACILITIES) do
+      fac_array(idx) := i
+      idx += 1
+    end-do
 
     ! Shuffle
     forall(i in 1..nI) do
-      j := ceil(random * (nI - i + 1)) + i - 1
-      if j >= i and j <= nI then
+      swap_idx := ceil(random * (nI - i + 1)) + i - 1
+      if swap_idx >= i and swap_idx <= nI then
         temp := fac_array(i)
-        fac_array(i) := fac_array(j)
-        fac_array(j) := temp
+        fac_array(i) := fac_array(swap_idx)
+        fac_array(swap_idx) := temp
       end-if
     end-do
 
@@ -210,12 +263,14 @@ model "MCLP_Tabu_Search"
   end-if
 
   ! Initialize coverage tracking
-  forall(j in CUSTOMERS)
+  forall(j in CUSTOMERS) do
     covered_by_count(j) := 0
+  end-do
 
   forall(i in K) do
-    forall(j in J_i(i))
+    forall(j in J_i(i)) do
       covered_by_count(j) += 1
+    end-do
   end-do
 
   ! Compute initial objective
@@ -235,7 +290,7 @@ model "MCLP_Tabu_Search"
 
   if VERBOSE >= 1 then
     writeln("Initial Solution:")
-    writeln("  Open facilities: ", card(K))
+    writeln("  Open facilities: ", getsize(K))
     writeln("  Objective: ", strfmt(objective, 10, 2),
             " / ", strfmt(total_demand, 10, 2),
             " (", strfmt(objective/total_demand*100, 5, 1), "%)")
@@ -249,7 +304,7 @@ model "MCLP_Tabu_Search"
 
   if VERBOSE >= 1 then
     writeln("Starting Tabu Search...")
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
   end-if
 
   iteration := 0
@@ -257,7 +312,7 @@ model "MCLP_Tabu_Search"
   stagnation_counter := 0
   last_improvement_iter := 0
 
-  while iteration < MAX_ITERATIONS do
+  while (iteration < MAX_ITERATIONS) do
     iteration += 1
 
     !================================================
@@ -384,17 +439,17 @@ model "MCLP_Tabu_Search"
     !================================================
     ! SELECT BEST NON-TABU MOVE (or aspiration)
     !================================================
-
+    
     best_idx := -1
-    best_delta := -infinity
+    best_delta := -MAX_REAL
 
     eval_limit := minlist(num_candidates, CANDIDATE_SIZE)
 
-    forall(idx in 1..eval_limit) do
-      move_type := candidate_move(idx)
-      move_i := candidate_i(idx)
-      move_j := candidate_j(idx)
-      delta := candidate_delta(idx)
+    forall(cand_idx in 1..eval_limit) do
+      move_type := candidate_move(cand_idx)
+      move_i := candidate_i(cand_idx)
+      move_j := candidate_j(cand_idx)
+      delta := candidate_delta(cand_idx)
 
       ! Check if move involves tabu facilities
       is_tabu := false
@@ -442,10 +497,10 @@ model "MCLP_Tabu_Search"
         K -= {move_i}
         budget_used -= COST(move_i)
 
-        forall(j in J_i(move_i)) do
-          covered_by_count(j) -= 1
-          if covered_by_count(j) = 0 then
-            objective -= DEMAND(j)
+        forall(cust_idx in J_i(move_i)) do
+          covered_by_count(cust_idx) -= 1
+          if covered_by_count(cust_idx) = 0 then
+            objective -= DEMAND(cust_idx)
           end-if
         end-do
 
@@ -458,11 +513,11 @@ model "MCLP_Tabu_Search"
         K += {move_i}
         budget_used += COST(move_i)
 
-        forall(j in J_i(move_i)) do
-          if covered_by_count(j) = 0 then
-            objective += DEMAND(j)
+        forall(cust_idx in J_i(move_i)) do
+          if covered_by_count(cust_idx) = 0 then
+            objective += DEMAND(cust_idx)
           end-if
-          covered_by_count(j) += 1
+          covered_by_count(cust_idx) += 1
         end-do
 
         ! Update tabu list and frequency
@@ -474,21 +529,21 @@ model "MCLP_Tabu_Search"
         K -= {move_i}
         budget_used -= COST(move_i)
 
-        forall(j in J_i(move_i)) do
-          covered_by_count(j) -= 1
-          if covered_by_count(j) = 0 then
-            objective -= DEMAND(j)
+        forall(cust_idx in J_i(move_i)) do
+          covered_by_count(cust_idx) -= 1
+          if covered_by_count(cust_idx) = 0 then
+            objective -= DEMAND(cust_idx)
           end-if
         end-do
 
         K += {move_j}
         budget_used += COST(move_j)
 
-        forall(j in J_i(move_j)) do
-          if covered_by_count(j) = 0 then
-            objective += DEMAND(j)
+        forall(cust_idx in J_i(move_j)) do
+          if covered_by_count(cust_idx) = 0 then
+            objective += DEMAND(cust_idx)
           end-if
-          covered_by_count(j) += 1
+          covered_by_count(cust_idx) += 1
         end-do
 
         ! Update tabu list and frequency
@@ -532,7 +587,7 @@ model "MCLP_Tabu_Search"
 
       ! Run a few local search iterations
       ls_iter := 0
-      while ls_iter < 10 do
+      while (ls_iter < 10) do
         ls_iter += 1
 
         ! Find best improving move
@@ -625,24 +680,14 @@ model "MCLP_Tabu_Search"
 
     if stagnation_counter >= STAGNATION_LIMIT then
       if VERBOSE >= 1 then
-        writeln("  [Iter ", iteration, "] DIVERSIFICATION: Shaking solution...")
-      end-if
-
-      ! Diversification: remove frequent facilities, add infrequent ones
-      setrandseed(SEED + iteration)
-      num_shake := minlist(3, card(K) / 3)
-
-      ! Find most frequent facilities in K
-      freq_array := []
-      fac_array := []
-      forall(i in K) do
-        freq_array += [move_frequency(i)]
-        fac_array += [i]
+        freq_array(idx) := move_frequency(i)
+        fac_array(idx) := i
+        idx += 1
       end-do
 
       ! Remove high-frequency facilities
       removed := 0
-      forall(idx in 1..getsize(fac_array)) do
+      forall(loop_idx in 1..getsize(fac_array)) do
         if removed >= num_shake then
           break
         end-if
@@ -662,10 +707,10 @@ model "MCLP_Tabu_Search"
           if rem_fac in K then
             K -= {rem_fac}
             budget_used -= COST(rem_fac)
-            forall(j in J_i(rem_fac)) do
-              covered_by_count(j) -= 1
-              if covered_by_count(j) = 0 then
-                objective -= DEMAND(j)
+            forall(cust_idx in J_i(rem_fac)) do
+              covered_by_count(cust_idx) -= 1
+              if covered_by_count(cust_idx) = 0 then
+                objective -= DEMAND(cust_idx)
               end-if
             end-do
             removed += 1
@@ -675,22 +720,14 @@ model "MCLP_Tabu_Search"
       end-do
 
       ! Add random infrequent facilities
-      cand_array := []
-      forall(i in FACILITIES | i not in K)
-        cand_array += [i]
+      delcell(cand_array)
+      idx := 1
+      forall(i in FACILITIES | i not in K) do
+        cand_array(idx) := i
+        idx += 1
+      end-do
 
       added := 0
-      forall(i in 1..getsize(cand_array)) do
-        if added >= num_shake then
-          break
-        end-if
-
-        idx := ceil(random * getsize(cand_array))
-        if idx >= 1 and idx <= getsize(cand_array) then
-          add_fac := cand_array(idx)
-          if budget_used + COST(add_fac) <= BUDGET then
-            K += {add_fac}
-            budget_used += COST(add_fac)
             forall(j in J_i(add_fac)) do
               if covered_by_count(j) = 0 then
                 objective += DEMAND(j)
@@ -712,16 +749,20 @@ model "MCLP_Tabu_Search"
   ! OUTPUT RESULTS
   !==================================================
 
-  num_open := card(K_best)
-  num_covered := sum(j in CUSTOMERS) do
+  num_open := getsize(K_best)
+  num_covered := 0
+  forall(j in CUSTOMERS) do
     cov_count := 0
     forall(i in I_j(j)) do
       if i in K_best then
         cov_count += 1
+        break
       end-if
     end-do
-    if(cov_count > 0, 1, 0)
-  end
+    if cov_count > 0 then
+      num_covered += 1
+    end-if
+  end-do
 
   coverage_pct := num_covered / nJ * 100
   demand_pct := objective_best / total_demand * 100
@@ -730,7 +771,7 @@ model "MCLP_Tabu_Search"
   improvement := objective_best - initial_obj
 
   if VERBOSE >= 1 then
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
     writeln("\nTABU SEARCH SOLUTION:")
     writeln("  Total iterations: ", iteration)
     writeln("  Improvements: ", improvements)
@@ -751,11 +792,12 @@ model "MCLP_Tabu_Search"
 
     writeln("\nOPEN FACILITIES:")
     write(" ")
-    forall(i in K_best)
+    forall(i in K_best) do
       write(" ", i)
+    end-do
     writeln("")
   end-if
 
-  writeln("\n", "="*70)
+  writeln("\n", "======================================================================")
 
 end-model

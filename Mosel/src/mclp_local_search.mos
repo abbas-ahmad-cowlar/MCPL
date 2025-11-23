@@ -22,7 +22,8 @@
    Phase: 4 - Multi-Start Local Search
 ******************************************************!)
 
-model "MCLP_Local_Search"
+model "MCLP_LocalSearch"
+  uses "mmsystem"
 
   !==================================================
   ! PARAMETERS
@@ -53,15 +54,31 @@ model "MCLP_Local_Search"
     nI nJ BUDGET
   end-initializations
 
+  declarations
+    ! Additional variables
+    covered: set of integer
+    best_fac: integer
+    best_ratio: real
+    new_cust: set of integer
+    ratio: real
+    fac_list: array(1..nI) of integer
+    temp: integer
+    fac: integer
+    loss: real
+    returned: real
+    swap_idx: integer
+    idx: integer
+  end-declarations
+
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MCLP LOCAL SEARCH")
-    writeln("="*70)
+    writeln("======================================================================")
     writeln("Instance: ", DATA_FILE)
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
     writeln("Initialization: ", INIT_METHOD)
-    writeln("="*70, "\n")
+    writeln("======================================================================", "\n")
   end-if
 
   !==================================================
@@ -75,6 +92,7 @@ model "MCLP_Local_Search"
     DEMAND: array(0..nJ-1) of real
     I_j: array(0..nJ-1) of set of integer
     J_i: array(0..nI-1) of set of integer
+    total_demand: real
   end-declarations
 
   !==================================================
@@ -89,12 +107,6 @@ model "MCLP_Local_Search"
   end-initializations
 
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
-
-  if VERBOSE >= 1 then
-    writeln("Instance Statistics:")
-    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
-    writeln("  Max moves: ", MAX_MOVES, "\n")
-  end-if
 
   !==================================================
   ! INITIALIZATION
@@ -118,7 +130,7 @@ model "MCLP_Local_Search"
     covered := {}
     budget_used := 0.0
 
-    while budget_used < BUDGET do
+    while (budget_used < BUDGET) do
       best_fac := -1
       best_ratio := 0.0
 
@@ -154,18 +166,20 @@ model "MCLP_Local_Search"
     ! Random initialization
     K := {}
     budget_used := 0.0
-    fac_list := []
-    forall(i in FACILITIES)
-      fac_list += [i]
+    idx := 1
+    forall(i in FACILITIES) do
+      fac_list(idx) := i
+      idx += 1
+    end-do
 
     ! Shuffle using seed
     setrandseed(SEED)
     forall(i in 1..nI) do
-      j := ceil(random * (nI - i + 1)) + i - 1
-      if j >= i then
+      swap_idx := ceil(random * (nI - i + 1)) + i - 1
+      if swap_idx >= i then
         temp := fac_list(i)
-        fac_list(i) := fac_list(j)
-        fac_list(j) := temp
+        fac_list(i) := fac_list(swap_idx)
+        fac_list(swap_idx) := temp
       end-if
     end-do
 
@@ -203,7 +217,7 @@ model "MCLP_Local_Search"
 
   if VERBOSE >= 1 then
     writeln("Initial Solution:")
-    writeln("  Open facilities: ", card(K))
+    writeln("  Open facilities: ", getsize(K))
     writeln("  Objective: ", strfmt(objective, 10, 2))
     writeln("  Budget used: ", strfmt(budget_used, 10, 2), " / ", BUDGET)
     writeln("")
@@ -325,10 +339,10 @@ model "MCLP_Local_Search"
 
   if VERBOSE >= 1 then
     writeln("Starting Local Search...")
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
   end-if
 
-  while iteration < MAX_MOVES do
+  while (iteration < MAX_MOVES) do
     iteration += 1
 
     ! Find best improving move (first-improvement strategy)
@@ -426,14 +440,14 @@ model "MCLP_Local_Search"
   ! OUTPUT RESULTS
   !==================================================
 
-  num_open := card(K)
+  num_open := getsize(K)
   num_covered := sum(j in CUSTOMERS) if(covered_by_count(j) > 0, 1, 0)
   coverage_pct := num_covered / nJ * 100
   demand_pct := objective / total_demand * 100
   budget_pct := budget_used / BUDGET * 100
 
   if VERBOSE >= 1 then
-    writeln("-"*70)
+    writeln("----------------------------------------------------------------------")
     writeln("\nLOCAL SEARCH SOLUTION:")
     writeln("  Iterations: ", iteration)
     writeln("  Improvements: ", improvements)
@@ -455,7 +469,7 @@ model "MCLP_Local_Search"
     writeln("")
   end-if
 
-  writeln("\n", "="*70)
+  writeln("\n", "======================================================================")
 
   !==================================================
   ! SOLUTION VALIDATION
