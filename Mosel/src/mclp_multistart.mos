@@ -22,6 +22,7 @@
 ******************************************************!)
 
 model "MCLP_Multi_Start"
+  uses "mmsystem"
 
   !==================================================
   ! PARAMETERS
@@ -52,15 +53,68 @@ model "MCLP_Multi_Start"
     nI nJ BUDGET
   end-initializations
 
+  declarations
+    ! Additional variables
+    overall_start_time: real
+    seed: integer
+    init_method: string
+    use_greedy: boolean
+    use_cn: boolean
+    use_random: boolean
+    perturb: boolean
+    covered: set of integer
+    best_fac: integer
+    best_ratio: real
+    customer: integer
+    best_cost: real
+    total_demand: real
+    overall_runtime: real
+    avg_initial: real
+    avg_final: real
+    avg_improvement: real
+    K: set of integer
+    covered_by_count: array(0..nJ-1) of integer
+    budget_used: real
+    objective: real
+    fac_array: array(range) of integer
+    cand_array: array(range) of integer
+    cust_array: array(range) of integer
+    demand_array: array(range) of real
+    num_remove: integer
+    idx: integer
+    rem_fac: integer
+    add_fac: integer
+    temp_d: real
+    temp_c: integer
+    temp: integer
+    fac: integer
+    swap_idx: integer
+    delta: real
+    loss: real
+    gain: real
+    best_delta: real
+    best_move: string
+    best_i: integer
+    best_j: integer
+    found: boolean
+    iteration: integer
+    improvements: integer
+    initial_obj: real
+    final_obj: real
+    improvement: real
+    runtime: real
+    start_time: real
+  end-declarations
+
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MCLP MULTI-START LOCAL SEARCH")
-    writeln("="*70)
+    writeln("======================================================================")
     writeln("Instance: ", DATA_FILE)
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
     writeln("Number of starts: ", N_STARTS)
-    writeln("="*70, "\n")
+    writeln("======================================================================", "\n")
   end-if
 
   !==================================================
@@ -89,12 +143,6 @@ model "MCLP_Multi_Start"
 
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
 
-  if VERBOSE >= 1 then
-    writeln("Instance Statistics:")
-    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
-    writeln("  LS max moves per start: ", MAX_MOVES, "\n")
-  end-if
-
   !==================================================
   ! MULTI-START TRACKING
   !==================================================
@@ -114,7 +162,7 @@ model "MCLP_Multi_Start"
   end-declarations
 
   global_best_K := {}
-  global_best_obj := -infinity
+  global_best_obj := -MAX_REAL
 
   overall_start_time := gettime
 
@@ -153,9 +201,9 @@ model "MCLP_Multi_Start"
     end-if
 
     if VERBOSE >= 1 then
-      writeln("\n", "-"*70)
+      writeln("\n", "----------------------------------------------------------------------")
       writeln("Start ", start_idx, " / ", N_STARTS, " (", init_method, ")")
-      writeln("-"*70)
+      writeln("----------------------------------------------------------------------")
     end-if
 
     start_time := gettime
@@ -163,13 +211,6 @@ model "MCLP_Multi_Start"
     ! ================================================
     ! INITIALIZATION
     ! ================================================
-
-    declarations
-      K: set of integer
-      covered_by_count: array(0..nJ-1) of integer
-      budget_used: real
-      objective: real
-    end-declarations
 
     K := {}
     budget_used := 0.0
@@ -179,7 +220,7 @@ model "MCLP_Multi_Start"
       ! Greedy initialization
       covered := {}
 
-      while budget_used < BUDGET do
+      while (budget_used < BUDGET) do
         best_fac := -1
         best_ratio := 0.0
 
@@ -205,58 +246,65 @@ model "MCLP_Multi_Start"
         K += {best_fac}
         covered += J_i(best_fac)
         budget_used += COST(best_fac)
+
+        if perturb then
+            ! Perturbation logic
+            num_remove := ceil(getsize(K) * 0.3)
+            
+            ! Remove random facilities
+            delcell(fac_array)
+            idx := 1
+            forall(i in K) do
+                fac_array(idx) := i
+                idx += 1
+            end-do
+            
+            forall(i in 1..num_remove) do
+                if getsize(K) > 0 then
+                    idx := ceil(random * getsize(K))
+                    if idx >= 1 and idx <= getsize(fac_array) then
+                        rem_fac := fac_array(idx)
+                        if rem_fac in K then
+                            K -= {rem_fac}
+                            budget_used -= COST(rem_fac)
+                        end-if
+                    end-if
+                end-if
+            end-do
+            
+            ! Add random different facilities
+            delcell(cand_array)
+            idx := 1
+            forall(i in FACILITIES | i not in K) do
+                cand_array(idx) := i
+                idx += 1
+            end-do
+            
+            forall(i in 1..num_remove) do
+                if getsize(cand_array) > 0 then
+                    idx := ceil(random * getsize(cand_array))
+                    if idx >= 1 and idx <= getsize(cand_array) then
+                        add_fac := cand_array(idx)
+                        if budget_used + COST(add_fac) <= BUDGET then
+                            K += {add_fac}
+                            budget_used += COST(add_fac)
+                        end-if
+                    end-if
+                end-if
+            end-do
+        end-if
       end-do
-
-      ! Perturbation for diversity
-      if perturb and card(K) > 2 then
-        setrandseed(seed)
-        num_remove := ceil(random * minlist(3, card(K) / 2))
-
-        ! Remove random facilities
-        fac_array := []
-        forall(i in K)
-          fac_array += [i]
-
-        forall(i in 1..num_remove) do
-          if card(K) > 0 then
-            idx := ceil(random * card(K))
-            if idx >= 1 and idx <= getsize(fac_array) then
-              rem_fac := fac_array(idx)
-              if rem_fac in K then
-                K -= {rem_fac}
-                budget_used -= COST(rem_fac)
-              end-if
-            end-if
-          end-if
-        end-do
-
-        ! Try to add random different facilities
-        cand_array := []
-        forall(i in FACILITIES | i not in K)
-          cand_array += [i]
-
-        forall(i in 1..num_remove) do
-          if getsize(cand_array) > 0 then
-            idx := ceil(random * getsize(cand_array))
-            if idx >= 1 and idx <= getsize(cand_array) then
-              add_fac := cand_array(idx)
-              if budget_used + COST(add_fac) <= BUDGET then
-                K += {add_fac}
-                budget_used += COST(add_fac)
-              end-if
-            end-if
-          end-if
-        end-do
-      end-if
 
     elif use_cn then
       ! Closest Neighbor initialization
       ! Sort customers by demand
-      cust_array := []
-      demand_array := []
+      delcell(cust_array)
+      delcell(demand_array)
+      idx := 1
       forall(j in CUSTOMERS) do
-        cust_array += [j]
-        demand_array += [DEMAND(j)]
+        cust_array(idx) := j
+        demand_array(idx) := DEMAND(j)
+        idx += 1
       end-do
 
       ! Simple bubble sort (descending)
@@ -277,8 +325,8 @@ model "MCLP_Multi_Start"
       covered := {}
 
       ! Process customers
-      forall(idx in 1..nJ) do
-        customer := cust_array(idx)
+      forall(cust_idx in 1..nJ) do
+        customer := cust_array(cust_idx)
 
         if customer in covered or budget_used >= BUDGET then
           next
@@ -286,7 +334,7 @@ model "MCLP_Multi_Start"
 
         ! Find closest facility
         best_fac := -1
-        best_cost := infinity
+        best_cost := MAX_REAL
 
         forall(i in I_j(customer)) do
           if i not in K and budget_used + COST(i) <= BUDGET then
@@ -307,17 +355,20 @@ model "MCLP_Multi_Start"
     elif use_random then
       ! Random initialization
       setrandseed(seed)
-      fac_array := []
-      forall(i in FACILITIES)
-        fac_array += [i]
+      delcell(fac_array)
+      idx := 1
+      forall(i in FACILITIES) do
+        fac_array(idx) := i
+        idx += 1
+      end-do
 
       ! Shuffle
       forall(i in 1..nI) do
-        j := ceil(random * (nI - i + 1)) + i - 1
-        if j >= i and j <= nI then
+        swap_idx := ceil(random * (nI - i + 1)) + i - 1
+        if swap_idx >= i and swap_idx <= nI then
           temp := fac_array(i)
-          fac_array(i) := fac_array(j)
-          fac_array(j) := temp
+          fac_array(i) := fac_array(swap_idx)
+          fac_array(swap_idx) := temp
         end-if
       end-do
 
@@ -331,12 +382,14 @@ model "MCLP_Multi_Start"
     end-if
 
     ! Initialize coverage tracking
-    forall(j in CUSTOMERS)
+    forall(j in CUSTOMERS) do
       covered_by_count(j) := 0
+    end-do
 
     forall(i in K) do
-      forall(j in J_i(i))
+      forall(j in J_i(i)) do
         covered_by_count(j) += 1
+      end-do
     end-do
 
     ! Compute initial objective
@@ -351,7 +404,7 @@ model "MCLP_Multi_Start"
 
     if VERBOSE >= 2 then
       writeln("  Initial: obj=", strfmt(initial_obj, 10, 2),
-              ", facilities=", card(K))
+              ", facilities=", getsize(K))
     end-if
 
     ! ================================================
@@ -361,7 +414,7 @@ model "MCLP_Multi_Start"
     iteration := 0
     improvements := 0
 
-    while iteration < MAX_MOVES do
+    while (iteration < MAX_MOVES) do
       iteration += 1
 
       ! Find best improving move (first-improvement)
@@ -517,23 +570,20 @@ model "MCLP_Multi_Start"
     start_results(start_idx).initial_obj := initial_obj
     start_results(start_idx).final_obj := final_obj
     start_results(start_idx).improvement := improvement
-    start_results(start_idx).num_moves := iteration
+    start_results(start_idx).num_moves := improvements
     start_results(start_idx).runtime := runtime
-
-    if VERBOSE >= 1 then
-      writeln("  Final:   obj=", strfmt(final_obj, 10, 2),
-              ", improvement=", strfmt(improvement, 8, 2),
-              ", moves=", improvements,
-              ", time=", strfmt(runtime, 6, 3), "s")
-    end-if
 
     ! Update global best
     if final_obj > global_best_obj then
       global_best_obj := final_obj
       global_best_K := K
-      if VERBOSE >= 1 then
-        writeln("  [*] New global best!")
-      end-if
+    end-if
+
+    if VERBOSE >= 1 then
+      writeln("  Final: obj=", strfmt(final_obj, 10, 2),
+              ", impr=", strfmt(improvement, 10, 2),
+              ", moves=", improvements,
+              ", time=", strfmt(runtime, 6, 2), "s")
     end-if
   end-do
 
@@ -544,9 +594,9 @@ model "MCLP_Multi_Start"
   !==================================================
 
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MULTI-START SUMMARY")
-    writeln("="*70)
+    writeln("======================================================================")
 
     ! Compute statistics
     avg_initial := sum(s in 1..N_STARTS) start_results(s).initial_obj / N_STARTS
@@ -562,17 +612,18 @@ model "MCLP_Multi_Start"
     writeln("  Objective: ", strfmt(global_best_obj, 10, 2),
             " / ", strfmt(total_demand, 10, 2),
             " (", strfmt(global_best_obj/total_demand*100, 5, 1), "%)")
-    writeln("  Open facilities: ", card(global_best_K), " / ", nI)
+    writeln("  Open facilities: ", getsize(global_best_K), " / ", nI)
     writeln("  Budget used: ", strfmt(sum(i in global_best_K) COST(i), 10, 2),
             " / ", BUDGET)
 
     writeln("\nOPEN FACILITIES:")
     write(" ")
-    forall(i in global_best_K)
+    forall(i in global_best_K) do
       write(" ", i)
+    end-do
     writeln("")
   end-if
 
-  writeln("\n", "="*70)
+  writeln("\n", "======================================================================")
 
 end-model
