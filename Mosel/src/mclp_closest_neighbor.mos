@@ -64,6 +64,15 @@ model "MCLP_ClosestNeighbor"
     temp_d: real
     temp_c: integer
     best_cost: real
+    idx: integer
+    temp_demand: real
+    temp_customer: integer
+    limit: integer
+    best_distance: real
+    distance: real
+    new_covered: integer
+    uncovered_count: integer
+    limit_check: integer
   end-declarations
 
   if VERBOSE >= 1 then
