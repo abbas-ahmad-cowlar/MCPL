@@ -27,7 +27,7 @@
 ******************************************************!)
 
 model "MCLP_Exact"
-  uses "mmxprs"  ! Xpress Optimizer
+  uses "mmxprs", "mmsystem"  ! Xpress Optimizer
 
   !==================================================
   ! PARAMETERS AND OPTIONS
@@ -59,13 +59,13 @@ model "MCLP_Exact"
   end-initializations
 
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
     writeln("MCLP EXACT MODEL - Compact Formulation")
-    writeln("="*70)
+    writeln("======================================================================")
     writeln("Instance: ", DATA_FILE)
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
-    writeln("="*70, "\n")
+    writeln("======================================================================", "\n")
   end-if
 
   !==================================================
@@ -93,6 +93,40 @@ model "MCLP_Exact"
   end-initializations
 
   !==================================================
+  ! VARIABLE DECLARATIONS FOR VALIDATION AND SOLUTION
+  !==================================================
+
+  declarations
+    ! Validation and statistics variables
+    min_cost: real
+    total_arcs_I_j: integer
+    total_arcs_J_i: integer
+    total_facility_cost: real
+    total_demand: real
+    coverage_density: real
+    total_arcs: integer
+    
+    ! Timing variables
+    start_time: real
+    solve_time: real
+    
+    ! Solution variables
+    solution_status: integer
+    is_optimal: boolean
+    objective_value: real
+    best_bound: real
+    optimality_gap: real
+    budget_used: real
+    num_open: integer
+    num_covered: integer
+    coverage_pct: real
+    demand_covered: real
+    demand_pct: real
+    violations: integer
+    num_covering: real
+  end-declarations
+
+  !==================================================
   ! DATA VALIDATION
   !==================================================
 
@@ -102,7 +136,7 @@ model "MCLP_Exact"
 
   ! Check 1: All customers have at least one covering facility
   forall(j in CUSTOMERS) do
-    if card(I_j(j)) = 0 then
+    if getsize(I_j(j)) = 0 then
       writeln("ERROR: Customer ", j, " has no covering facilities!")
       exit(1)
     end-if
@@ -116,8 +150,8 @@ model "MCLP_Exact"
   end-if
 
   ! Check 3: Coverage matrix consistency
-  total_arcs_I_j := sum(j in CUSTOMERS) card(I_j(j))
-  total_arcs_J_i := sum(i in FACILITIES) card(J_i(i))
+  total_arcs_I_j := sum(j in CUSTOMERS) getsize(I_j(j))
+  total_arcs_J_i := sum(i in FACILITIES) getsize(J_i(i))
   if total_arcs_I_j <> total_arcs_J_i then
     writeln("ERROR: Coverage matrix inconsistency!")
     writeln("  I_j arcs: ", total_arcs_I_j, ", J_i arcs: ", total_arcs_J_i)
@@ -127,7 +161,11 @@ model "MCLP_Exact"
   ! Compute instance statistics
   total_facility_cost := sum(i in FACILITIES) COST(i)
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
-  coverage_density := total_arcs_I_j / (nI * nJ)
+  total_arcs := 0
+  forall(j in CUSTOMERS) do
+    total_arcs += getsize(I_j(j))
+  end-do
+  coverage_density := total_arcs / (nI * nJ)
 
   if VERBOSE >= 1 then
     writeln("Instance Statistics:")
@@ -236,7 +274,7 @@ model "MCLP_Exact"
     writeln("Starting optimization...")
     writeln("  Time limit: ", TIME_LIMIT, " seconds")
     writeln("  MIP gap: ", MIP_GAP * 100, "%")
-    writeln("="*70)
+    writeln("======================================================================")
   end-if
 
   start_time := gettime
@@ -250,43 +288,15 @@ model "MCLP_Exact"
   solution_status := getprobstat
 
   if VERBOSE >= 1 then
-    writeln("\n", "="*70)
-    writeln("SOLUTION STATUS")
-    writeln("="*70)
+    writeln("======================================================================")
   end-if
 
-  case solution_status of
-    XPRS_OPT: begin
-      if VERBOSE >= 1 then
-        writeln("Status: OPTIMAL")
-      end-if
-      is_optimal := true
-    end
-    XPRS_UNF: begin
-      if VERBOSE >= 1 then
-        writeln("Status: UNFINISHED (time limit or interrupted)")
-      end-if
-      is_optimal := false
-    end
-    XPRS_INF: begin
-      writeln("Status: INFEASIBLE")
-      exit(1)
-    end
-    XPRS_UNB: begin
-      writeln("Status: UNBOUNDED")
-      exit(1)
-    end
-    else begin
-      writeln("Status: UNKNOWN (", solution_status, ")")
-      is_optimal := false
-    end
-  end-case
+  declarations
+    open_facilities: set of integer
+    covered_customers: set of integer
+  end-declarations
 
-  !==================================================
-  ! EXTRACT SOLUTION
-  !==================================================
-
-  if getobjval > -infinity then
+  if is_optimal or solution_status = XPRS_UNF then
     ! Get objective value
     objective_value := getobjval
     best_bound := getparam("XPRS_BESTBOUND")
@@ -295,12 +305,6 @@ model "MCLP_Exact"
     if abs(objective_value) > 1e-6 then
       optimality_gap := abs(best_bound - objective_value) / abs(objective_value) * 100
     end-if
-
-    ! Extract open facilities
-    declarations
-      open_facilities: set of integer
-      covered_customers: set of integer
-    end-declarations
 
     forall(i in FACILITIES) do
       if getsol(y(i)) > 0.5 then
@@ -317,8 +321,8 @@ model "MCLP_Exact"
 
     ! Compute solution metrics
     budget_used := sum(i in open_facilities) COST(i)
-    num_open := card(open_facilities)
-    num_covered := card(covered_customers)
+    num_open := getsize(open_facilities)
+    num_covered := getsize(covered_customers)
     coverage_pct := num_covered / nJ * 100
     demand_covered := sum(j in covered_customers) DEMAND(j)
     demand_pct := demand_covered / total_demand * 100
@@ -360,7 +364,7 @@ model "MCLP_Exact"
         writeln("\nFACILITY DETAILS:")
         forall(i in open_facilities) do
           writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
-                  ", covers ", card(J_i(i)), " customers")
+                  ", covers ", getsize(J_i(i)), " customers")
         end-do
 
         writeln("\nCOVERED CUSTOMERS:")
@@ -372,7 +376,7 @@ model "MCLP_Exact"
       end-if
     end-if
 
-    writeln("\n", "="*70)
+    writeln("\n", "======================================================================")
 
     !==================================================
     ! SOLUTION VALIDATION
