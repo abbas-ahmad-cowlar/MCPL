@@ -123,13 +123,14 @@ foreach ($algo in $algorithms) {
         
         Write-Host "[$currentRun/$totalRuns] Running $($algo.Name) on $instance..." -ForegroundColor Cyan
 
-        $moselCmd = "mosel `"$($algo.File)`" `"DATA_FILE=`'$dataFile`'`""
+        # Build mosel arguments array
+        $moselArgs = @($algo.File, "DATA_FILE=$dataFile")
         if ($algo.Params) {
-            $moselCmd += " `"$($algo.Params)`""
+            $moselArgs += $algo.Params
         }
 
         try {
-            Invoke-Expression "$moselCmd > `"$logFile`" 2>&1"
+            & mosel $moselArgs > $logFile 2>&1
             Write-Host "  ✓ Completed" -ForegroundColor Green
         } catch {
             Write-Host "  ⚠ Warning: Run may have issues (check log)" -ForegroundColor Yellow
