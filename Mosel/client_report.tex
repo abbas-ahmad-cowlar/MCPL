@@ -104,16 +104,16 @@ The MCLP was first formulated by Church and ReVelle in 1974 \cite{church1974} as
 
 \subsection{Problem Complexity and Computational Challenges}
 
-MCLP belongs to the class of NP-hard combinatorial optimization problems \cite{megiddo1983}. As problem size increases, the number of feasible solutions grows exponentially, making exhaustive search intractable. For an instance with $|I|$ potential facility locations, there are theoretically $2^{|I|}$ possible facility configurations to consider, although the budget constraint reduces this somewhat.
+The MCLP belongs to the class of NP-hard combinatorial optimization problems \cite{megiddo1983}. As problem size increases, the number of feasible solutions grows exponentially, making exhaustive search intractable. For an instance with $|I|$ potential facility locations, there are theoretically $2^{|I|}$ possible facility configurations to consider.
 
 The computational challenge intensifies when dealing with:
 \begin{itemize}
   \item \textbf{Large customer sets}: Modern applications may involve millions of demand points (e.g., census blocks, individual households).
-  \item \textbf{Dense coverage graphs}: In urban areas, facilities may cover many customers, leading to complex interdependencies.
+  \item \textbf{Dense coverage graphs}: In urban areas, facilities may cover many customers, leading to complex interdependencies and symmetry in the solution space.
   \item \textbf{Tight budgets}: Limited budgets create difficult trade-offs between coverage quality and cost efficiency.
 \end{itemize}
 
-Recent advances in mathematical programming and Benders decomposition techniques have enabled exact solution of MCLP instances with millions of demand points \cite{cordeau2019}. However, exact methods remain computationally expensive and may encounter software licensing limitations (e.g., variable/constraint limits in community editions of commercial solvers).
+As noted by Cordeau et al. \cite{cordeau2019}, exact algorithms for large-scale instances remain scarce despite the problem's practical importance. Recent advances in Benders decomposition techniques have enabled exact solution of instances with millions of customers when the number of facilities is relatively small. However, for practical applications where rapid decision-making is required or when the number of facilities is substantial, heuristic and metaheuristic approaches remain essential.
 
 \subsection{Contributions}
 
@@ -232,6 +232,19 @@ The MCLP can be formulated as the following Mixed Integer Program:
   
   \item \textbf{Coverage Variables} \eqref{eq:continuous_z}: Following \cite{cordeau2019}, we relax the integrality requirement on $z_j$ variables. Due to the maximization objective, these variables naturally take binary values at optimality.
 \end{itemize}
+
+\subsection{Model Characteristics}
+
+\paragraph{Problem Size:}
+For an instance with $|I|$ facilities and $|J|$ customers, the compact formulation has:
+\begin{itemize}
+  \item \textbf{Variables}: $|I|$ binary variables + $|J|$ continuous variables = $|I| + |J|$ total
+  \item \textbf{Constraints}: $|J|$ coverage constraints + 1 budget constraint = $|J| + 1$ total
+  \item \textbf{Nonzeros}: Approximately $\sum_{j \in J} |I(j)|$ (depends on coverage density and radius $R$)
+\end{itemize}
+
+\paragraph{LP Relaxation Quality:}
+The LP relaxation of MCLP often provides tight bounds \cite{church1974,snyder2011}. Empirical studies show that for many practical instances, the LP relaxation is integral or near-integral, with optimality gaps typically in the range of 0-5\% for moderately sized instances. This property makes branch-and-bound approaches particularly effective for small to medium instances.
 
 \newpage
 \section{Solution Algorithms}
@@ -568,14 +581,14 @@ Instance & Exact & Greedy & Closest & Local & Multi & Tabu \\
 & & & Neighbor & Search & Start & Search \\
 \midrule
 test\_tiny & 0.01 & \textless0.01 & \textless0.01 & \textless0.01 & \textless0.01 & 0.01 \\
-S1 & 0.03 & \textless0.01 & \textless0.01 & \textless0.01 & \textless0.01 & 0.21 \\
-S2 & 0.13 & \textless0.01 & \textless0.01 & \textless0.01 & \textless0.01 & 0.21 \\
-M1 & 0.25 & \textless0.01 & \textless0.01 & 0.01 & 0.02 & 0.69 \\
-M2 & 0.18 & \textless0.01 & \textless0.01 & 0.01 & 0.02 & 0.48 \\
-L1 & 0.50 & 0.01 & 0.01 & \textbf{0.02} & 0.04 & 0.81 \\
-L2 & 0.18 & 0.01 & 0.01 & 0.02 & 0.04 & 0.81 \\
-XL1 & 0.33 & 0.02 & 0.02 & 0.05 & 0.11 & 1.18 \\
-XXL1 & N/A & 0.10 & 0.11 & \textbf{0.25} & 0.47 & 1.16 \\
+S1 & 0.03 & \textless0.01 & \textless0.01 & \textless0.01 & 0.05 & 0.16 \\
+S2 & 0.13 & \textless0.01 & \textless0.01 & \textless0.01 & 0.08 & 0.16 \\
+M1 & 0.25 & 0.02 & 0.04 & 0.03 & 0.18 & 0.32 \\
+M2 & 0.18 & 0.01 & 0.04 & 0.03 & 0.20 & 0.21 \\
+L1 & 0.50 & 0.04 & 0.12 & \textbf{0.01} & 0.38 & 0.28 \\
+L2 & 0.18 & 0.05 & 0.13 & 0.04 & 0.42 & 0.30 \\
+XL1 & 0.33 & 0.15 & 0.45 & 0.11 & 1.12 & 0.59 \\
+XXL1 & N/A & 0.48 & 3.89 & \textbf{0.10} & 56.23 & N/A \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -583,8 +596,8 @@ XXL1 & N/A & 0.10 & 0.11 & \textbf{0.25} & 0.47 & 1.16 \\
 \textbf{Key Observations:}
 \begin{itemize}
   \item \textbf{Greedy}: Extremely fast (under 0.1s for all instances), but solution quality suffers on large instances
-  \item \textbf{Local Search}: Remarkable efficiency - solves massive XXL1 (5000 customers) in 0.25s
-  \item \textbf{Tabu Search}: Moderate runtime (0.2-1.2s), excellent solution quality
+  \item \textbf{Local Search}: Remarkable efficiency - solves massive XXL1 (5000 customers) in 0.10s
+  \item \textbf{Tabu Search}: Moderate runtime (0.2-0.8s), excellent solution quality
   \item \textbf{Exact}: Fast on small/medium, but fails on XXL1; not always best on large instances
 \end{itemize}
 
@@ -659,7 +672,7 @@ The Exact solver remains competitive, finding optimal solutions in 0.18-0.25s. H
 
 This is where heuristics begin to shine:
 \begin{itemize}
-  \item \textbf{L1}: Local Search achieves objective 47783, \textit{better} than Exact's 47522 (which stopped at 1\% MIP gap). Local Search runtime: \textbf{0.02 seconds}!
+  \item \textbf{L1}: Local Search achieves objective 47783, \textit{better} than Exact's 47522 (which stopped at 1\% MIP gap). Local Search runtime: \textbf{0.01 seconds}!
   \item \textbf{L2}: Exact finds best (45060), but Tabu Search is competitive (44448, 1.4\% gap)
 \end{itemize}
 
@@ -672,7 +685,7 @@ XL1 has 500 facilities and 2000 customers. Results:
   \item \textbf{Best solution}: Tabu Search with objective 96479
   \item Exact: 96092 (0.4\% worse than Tabu!)
   \item Local Search: 95924 (0.6\% gap); runtime only 0.05s
-  \item Tabu Search runtime: 1.18s
+  \item Tabu Search runtime: 0.59s
 \end{itemize}
 
 \textbf{Insight}: Tabu Search outperforms the Exact solver on this instance, demonstrating the power of metaheuristics for challenging problems.
@@ -684,10 +697,10 @@ XXL1 tests scalability limits with 1000 facilities and 5000 customers.
 \textbf{Results:}
 \begin{itemize}
   \item \textbf{Exact Solver}: \textit{Failed} due to Xpress Community Edition limit (5000 constraints/variables)
-  \item \textbf{Local Search}: Objective 250788 in 0.25 seconds (\textbf{optimal})
+  \item \textbf{Local Search}: Objective 250788 in 0.10 seconds (\textbf{optimal})
   \item \textbf{Greedy}: 250732 (0.02\% gap), 0.10s
-  \item \textbf{Tabu Search}: 250732 (0.02\% gap), 1.16s
-  \item \textbf{Multi-Start}: 250788 (optimal), 0.47s
+  \item \textbf{Tabu Search}: Failed (Index Error)
+  \item \textbf{Multi-Start}: 250788 (optimal), 56.23s
 \end{itemize}
 
 \textbf{Remarkable Finding}: Local Search achieves the optimal solution in a quarter of a second on a problem the Exact solver cannot even attempt!
@@ -713,7 +726,7 @@ Large instances & Local Search or Tabu & Local Search: unbeatable speed \\
 (200-500 facilities) & & Tabu: best quality-speed balance \\
 \midrule
 Massive instances & Local Search & Only heuristics feasible; Local Search \\
-(\textgreater500 facilities) & & optimal on XXL1 in 0.25s \\
+(\textgreater500 facilities) & & optimal on XXL1 in 0.10s \\
 \midrule
 Quick baseline & Greedy & Fastest; 70-95\% of optimal \\
 \midrule
@@ -819,115 +832,102 @@ The large scale maximal covering location problem.
 \newpage
 \appendix
 
-\section{Complete Mosel Source Code}
+\section{Implementation Guide and Source Code Documentation}
 
-This appendix provides the complete source code for all six algorithms. Each file is production-ready and includes comprehensive error handling and documentation.
+This appendix provides comprehensive documentation for practitioners to use, understand, and extend the MCLP algorithm implementations presented in this study.
 
-\subsection{Data File Format}
+\subsection{Data File Format Specification}
 
-All algorithms read instance data from \texttt{.dat} files with the following structure:
+All algorithms read instance data from standardized \texttt{.dat} files with the following structure:
 
 \begin{lstlisting}
-! Number of facilities and customers
-I: 50
-J: 200
-BUDGET: 10.0
+! MCLP Instance Data File Format
+! Comments begin with exclamation mark
 
-! Sets
+! Problem dimensions
+I: 50          ! Number of potential facilities
+J: 200         ! Number of customer demand points
+BUDGET: 10.0   ! Available budget
+
+! Index sets
 FACILITIES: [0..49]
 CUSTOMERS: [0..199]
 
-! Arrays
-COST: [1.23, 4.56, ...]
-DEMAND: [10, 15, 20, ...]
+! Facility costs (array of length I)
+COST: [1.23, 4.56, 2.34, 5.67, ...]
 
-! Coverage relationships  
-COVERAGE_I_j: [(0) {1 5 12 ...}, (1) {3 7 9 ...}, ...]
-COVERAGE_J_i: [(0) {2 8 13 ...}, (1) {4 6 10 ...}, ...]
+! Customer demands (array of length J)
+DEMAND: [10, 15, 20, 25, 12, 8, ...]
+
+! Coverage relationships
+! COVERAGE_I_j: For each facility i, list customers it covers
+COVERAGE_I_j: [
+  (0) {1 5 12 23 45 ...}
+  (1) {3 7 9 15 22 ...}
+  ...
+]
+
+! COVERAGE_J_i: For each customer j, list facilities that cover it
+COVERAGE_J_i: [
+  (0) {2 8 13 24 ...}
+  (1) {4 6 10 18 ...}
+  ...
+]
 \end{lstlisting}
 
-\subsection{mclp\_exact.mos}
+\subsection{Algorithm Implementations}
 
-The complete source code for the Exact MIP solver is available in the project repository. Key features:
+All six algorithms are implemented as standalone Mosel programs (\texttt{.mos} files).
+
+\subsubsection{Exact MIP Solver: \texttt{mclp\_exact.mos}}
 \begin{itemize}
-  \item Implements compact formulation (equations 1-5)
-  \item Configurable time limits and MIP gap
-  \item Comprehensive validation and solution reporting
-  \item File: \texttt{src/mclp\_exact.mos}
+  \item \textbf{Description}: Implements compact formulation using FICO Xpress Optimizer.
+  \item \textbf{Usage}: \texttt{mosel exec mclp\_exact.mos "DATA\_FILE=data/S1.dat"}
+  \item \textbf{Key Parameters}: \texttt{TIME\_LIMIT} (default 600s), \texttt{MIP\_GAP} (default 1\%).
 \end{itemize}
 
-\subsection{mclp\_greedy.mos}
-
-Greedy heuristic implementation with maximum coverage gain per cost selection.
-File: \texttt{src/mclp\_greedy.mos}
-
-\subsection{mclp\_closest\_neighbor.mos}
-
-Distance-based construction heuristic.
-File: \texttt{src/mclp\_closest\_neighbor.mos}
-
-\subsection{mclp\_local\_search.mos}
-
-Local Search with delta-evaluation and multiple neighborhood structures.
-File: \texttt{src/mclp\_local\_search.mos}
-
-\subsection{mclp\_multistart.mos}
-
-Multi-Start framework with diverse initialization strategies.
-File: \texttt{src/mclp\_multistart.mos}
-
-\subsection{mclp\_tabu\_search.mos}
-
-Tabu Search metaheuristic with intensification and diversification.
-File: \texttt{src/mclp\_tabu\_search.mos}
-
-\vspace{1cm}
-
-\noindent
-\textbf{Note}: All source code files are provided separately in the \texttt{src/} directory. Each file is fully documented with inline comments explaining the implementation details.
-
-\newpage
-\section{Execution Instructions}
-
-\subsection{Running Individual Algorithms}
-
-To run a specific algorithm on an instance:
-
-\begin{lstlisting}[language=bash]
-mosel exec mclp_exact.mos "DATA_FILE=data/S1.dat"
-mosel exec mclp_tabu_search.mos "DATA_FILE=data/XL1.dat"
-\end{lstlisting}
-
-\subsection{Running Complete Benchmark}
-
-To execute all algorithms on all instances:
-
-\begin{lstlisting}[language=bash]
-.\run_benchmark.ps1
-\end{lstlisting}
-
-This PowerShell script automates:
+\subsubsection{Greedy Heuristic: \texttt{mclp\_greedy.mos}}
 \begin{itemize}
-  \item Compilation of all \texttt{.mos} files
-  \item Execution on all datasets
-  \item Output logging to \texttt{results/} directory
-  \item Time limit enforcement for Exact solver
+  \item \textbf{Description}: Fast constructive heuristic (max coverage gain per cost).
+  \item \textbf{Usage}: \texttt{mosel exec mclp\_greedy.mos "DATA\_FILE=data/M1.dat"}
 \end{itemize}
 
-\subsection{Analyzing Results}
-
-To generate performance summary and visualizations:
-
-\begin{lstlisting}[language=bash]
-.\summarize_results.ps1
-python scripts/generate_visualizations.py
-\end{lstlisting}
-
-This produces:
+\subsubsection{Local Search: \texttt{mclp\_local\_search.mos}}
 \begin{itemize}
-  \item Performance comparison tables (\texttt{figures/performance\_table.tex})
-  \item Runtime charts (\texttt{figures/runtime\_comparison.pdf})
-  \item Scalability analysis (\texttt{figures/runtime\_vs\_size.pdf})
+  \item \textbf{Description}: Improvement heuristic with 1-flip and swap neighborhoods.
+  \item \textbf{Usage}: \texttt{mosel exec mclp\_local\_search.mos "DATA\_FILE=data/L1.dat"}
+  \item \textbf{Key Parameters}: \texttt{MAX\_ITER} (default 1000), \texttt{INIT\_METHOD} (default "greedy").
 \end{itemize}
+
+\subsubsection{Tabu Search: \texttt{mclp\_tabu\_search.mos}}
+\begin{itemize}
+  \item \textbf{Description}: Metaheuristic with tabu list and diversification.
+  \item \textbf{Usage}: \texttt{mosel exec mclp\_tabu\_search.mos "DATA\_FILE=data/XL1.dat"}
+  \item \textbf{Key Parameters}: \texttt{TABU\_TENURE} (10), \texttt{MAX\_ITER} (500).
+\end{itemize}
+
+\section{Troubleshooting and Best Practices}
+
+\subsection{Common Issues}
+
+\paragraph{Issue: Exact solver fails with "too many variables"}
+\begin{itemize}
+  \item \textbf{Cause:} Xpress Community Edition limit exceeded (5000 constraints/variables).
+  \item \textbf{Solution:} Use heuristics (Local Search, Tabu Search) or upgrade license.
+\end{itemize}
+
+\paragraph{Issue: Tabu Search crashes on large instances}
+\begin{itemize}
+  \item \textbf{Cause:} Array index out of bounds (implementation limitation on massive instances).
+  \item \textbf{Solution:} Use Local Search or Multi-Start for massive instances (>2000 customers).
+\end{itemize}
+
+\subsection{Best Practices}
+\begin{enumerate}
+  \item \textbf{Always validate data files} before running algorithms.
+  \item \textbf{Start with small instances} when testing new algorithm variants.
+  \item \textbf{Use Greedy as a quick baseline} to verify problem setup.
+  \item \textbf{Monitor memory usage} for very large instances.
+\end{enumerate}
 
 \end{document}
