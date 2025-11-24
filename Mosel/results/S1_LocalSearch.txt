@@ -1,0 +1,33 @@
+======================================================================
+MCLP LOCAL SEARCH
+======================================================================
+Instance: data/S1.dat
+Facilities: 50, Customers: 200
+Budget: 10
+Initialization: greedy
+======================================================================
+
+Initializing with Greedy heuristic...
+Initial Solution:
+  Open facilities: 6
+  Objective:    7646.00
+  Budget used:       9.31 / 10
+
+Starting Local Search...
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+
+LOCAL SEARCH SOLUTION:
+  Iterations: 1
+  Improvements: 0
+  Open facilities: 6 / 50
+  Covered customers: 153 / 200 ( 76.5%)
+  Budget used:       9.31 /      10.00 ( 93.1%)
+  Final objective:    7646.00 /    9749.00 ( 78.4%)
+  Runtime:   0.0001 seconds
+
+OPEN FACILITIES:
+  38 34 13 39 28 41
+
+======================================================================
+
