@@ -1,0 +1,31 @@
+model "Test_Simple"
+  uses "mmsystem"
+  
+  declarations
+    nI, nJ: integer
+    BUDGET: real
+  end-declarations
+  
+  initializations from "data/test_simple.dat"
+    nI nJ BUDGET
+  end-initializations
+  
+  writeln("Loaded: nI=", nI, ", nJ=", nJ, ", BUDGET=", BUDGET)
+  
+  declarations
+    FACILITIES: set of integer
+    CUSTOMERS: set of integer
+    COST: array(0..nI-1) of real
+    DEMAND: array(0..nJ-1) of real
+  end-declarations
+  
+  initializations from "data/test_simple.dat"
+    FACILITIES CUSTOMERS
+    COST DEMAND
+  end-initializations
+  
+  writeln("Arrays loaded successfully!")
+  writeln("COST: ", COST)
+  writeln("DEMAND: ", DEMAND)
+  
+end-model
