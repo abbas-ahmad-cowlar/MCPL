@@ -58,6 +58,6 @@ For deployment, we recommend a **hybrid approach**:
 ## 6. Deliverables
 
 - Full source code in Mosel (`src/`).
-- Data generation and conversion scripts (`scripts/`, `mosel/utilities/`).
-- Benchmark scripts (`run_complete_benchmark.ps1`).
+- Data generation and conversion scripts (`scripts/`).
+- Benchmark scripts (`run_benchmark.ps1`).
 - Detailed results (`benchmark_results.md`).
