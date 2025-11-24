@@ -3,7 +3,7 @@
 Data Conversion Utility: JSON to Mosel .dat format
 Converts MCLP instances from JSON format to FICO Xpress Mosel data files.
 
-Author: MCLP Migration Team
+Author: Syed Abbas Ahmad
 Date: 2025-11-21
 """
 

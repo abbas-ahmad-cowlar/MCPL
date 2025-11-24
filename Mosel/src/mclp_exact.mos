@@ -21,7 +21,7 @@
      z[j] = 1 if customer j is covered, 0 otherwise
           (can be relaxed to [0,1] without loss of optimality)
 
-   Author: MCLP Migration Team
+   Author: Syed Abbas Ahmad
    Date: November 2025
    Phase: 2 - Exact Model Implementation
 ******************************************************!)
