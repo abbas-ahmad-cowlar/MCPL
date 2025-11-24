@@ -108,7 +108,6 @@ model "MCLP_Tabu_Search"
     swap_count: integer
     idx: integer
     rand_idx: integer
-    r_val: real
     iteration: integer
     start_time: real
     total_demand: real
@@ -124,14 +123,12 @@ model "MCLP_Tabu_Search"
     ! Diversification variables
     freq_array: array(range) of integer
     num_shake: integer
-    loop_idx: integer
     max_freq: integer
     max_idx: integer
     rem_fac: integer
     cand_array: array(range) of integer
     removed: integer
-    add_idx: integer
-    cust_idx: integer
+    cand_count: integer
   end-declarations
 
   if VERBOSE >= 1 then
@@ -752,17 +749,22 @@ model "MCLP_Tabu_Search"
 
       ! Add random infrequent facilities
       delcell(cand_array)
-      idx := 1
+      cand_count := 0
       forall(i in FACILITIES | i not in K) do
-        cand_array(idx) := i
-        idx += 1
+        cand_count += 1
+        cand_array(cand_count) := i
       end-do
 
       added := 0
       forall(add_idx in 1..num_shake) do
-        if getsize(cand_array) > 0 then
-          rand_idx := ceil(random * getsize(cand_array))
-          if rand_idx >= 1 and rand_idx <= getsize(cand_array) then
+        if cand_count > 0 then
+          ! Safe random index generation (1..cand_count)
+          rand_idx := 1 + floor(random * cand_count)
+          if rand_idx > cand_count then 
+            rand_idx := cand_count 
+          end-if
+          
+          if exists(cand_array(rand_idx)) then
             add_fac := cand_array(rand_idx)
             if budget_used + COST(add_fac) <= BUDGET then
               K += {add_fac}

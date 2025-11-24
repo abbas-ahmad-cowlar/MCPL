@@ -1,0 +1,42 @@
+model "Test_Data_Load"
+  uses "mmsystem"
+  
+  parameters
+    DATA_FILE = "data/test_tiny.dat"
+  end-parameters
+  
+  declarations
+    nI, nJ: integer
+    BUDGET: real
+  end-declarations
+  
+  initializations from DATA_FILE
+    nI nJ BUDGET
+  end-initializations
+  
+  writeln("Successfully loaded:")
+  writeln("  nI = ", nI)
+  writeln("  nJ = ", nJ)
+  writeln("  BUDGET = ", BUDGET)
+  
+  declarations
+    FACILITIES: set of integer
+    CUSTOMERS: set of integer
+    COST: array(0..nI-1) of real
+    DEMAND: array(0..nJ-1) of real
+    I_j: array(0..nJ-1) of set of integer
+    J_i: array(0..nI-1) of set of integer
+  end-declarations
+  
+  initializations from DATA_FILE
+    FACILITIES CUSTOMERS
+    COST DEMAND
+    I_j as "COVERAGE_I_j"
+    J_i as "COVERAGE_J_i"
+  end-initializations
+  
+  writeln("All data loaded successfully!")
+  writeln("Facilities: ", FACILITIES)
+  writeln("Customers: ", CUSTOMERS)
+  
+end-model

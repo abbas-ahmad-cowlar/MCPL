@@ -65,7 +65,6 @@ model "MCLP_LocalSearch"
     temp: integer
     fac: integer
     loss: real
-    returned: real
     swap_idx: integer
     idx: integer
     gain: real
