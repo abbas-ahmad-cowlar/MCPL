@@ -125,22 +125,18 @@ class JSONtoMoselConverter:
         lines.append(f"CUSTOMERS: [{customers_str}]")
         lines.append("")
 
-        # Facility costs (as array indexed by facility ID)
+        # Facility costs (dense array format for Mosel)
         lines.append("! === FACILITY COSTS ===")
-        lines.append("COST: [")
-        for i in sorted(self.data['I']):
-            cost = float(self.data['f'][str(i)])
-            lines.append(f"  {i} {cost:.6f}")
-        lines.append("]")
+        costs = [float(self.data['f'][str(i)]) for i in sorted(self.data['I'])]
+        costs_str = " ".join(f"{c:.6f}" for c in costs)
+        lines.append(f"COST: [{costs_str}]")
         lines.append("")
 
-        # Customer demands
+        # Customer demands (dense array format for Mosel)
         lines.append("! === CUSTOMER DEMANDS ===")
-        lines.append("DEMAND: [")
-        for j in sorted(self.data['J']):
-            demand = float(self.data['d'][str(j)])
-            lines.append(f"  {j} {demand:.6f}")
-        lines.append("]")
+        demands = [float(self.data['d'][str(j)]) for j in sorted(self.data['J'])]
+        demands_str = " ".join(f"{d:.6f}" for d in demands)
+        lines.append(f"DEMAND: [{demands_str}]")
         lines.append("")
 
         # Coverage sets I_j (facilities that can cover customer j)
@@ -150,7 +146,7 @@ class JSONtoMoselConverter:
         for j in sorted(self.data['J']):
             facilities = sorted(self.data['I_j'][str(j)])
             facilities_str = " ".join(str(i) for i in facilities)
-            lines.append(f"  {j} [{facilities_str}]")
+            lines.append(f"  ({j}) [{facilities_str}]")
         lines.append("]")
         lines.append("")
 
@@ -169,7 +165,7 @@ class JSONtoMoselConverter:
         for i in sorted(self.data['I']):
             customers = sorted(J_i[i])
             customers_str = " ".join(str(j) for j in customers)
-            lines.append(f"  {i} [{customers_str}]")
+            lines.append(f"  ({i}) [{customers_str}]")
         lines.append("]")
         lines.append("")
 

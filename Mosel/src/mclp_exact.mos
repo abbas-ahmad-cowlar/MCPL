@@ -296,7 +296,10 @@ model "MCLP_Exact"
     covered_customers: set of integer
   end-declarations
 
-  if is_optimal or solution_status = XPRS_UNF then
+  if solution_status = XPRS_OPT or solution_status = XPRS_UNF then
+    if solution_status = XPRS_OPT then
+      is_optimal := true
+    end-if
     ! Get objective value
     objective_value := getobjval
     best_bound := getparam("XPRS_BESTBOUND")
