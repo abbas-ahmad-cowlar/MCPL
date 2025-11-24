@@ -1,71 +1,21 @@
 \documentclass[11pt,a4paper]{article}
 
-% Essential packages
+% Packages
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{array}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
-\usepackage{listings}
-\usepackage{xcolor}
 \usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
 \usepackage{cite}
-\usepackage{caption}
-\usepackage{subcaption}
-\usepackage{multirow}
 
-% Page geometry
-\usepackage{geometry}
-\geometry{
-  a4paper,
-  left=2.5cm,
-  right=2.5cm,
-  top=2.5cm,
-  bottom=2.5cm
-}
-
-% Hyperref settings
-\hypersetup{
-  colorlinks=true,
-  linkcolor=blue,
-  citecolor=blue,
-  urlcolor=blue,
-  pdftitle={MCLP Computational Study - Scientific Report},
-  pdfauthor={MCLP Optimization Suite}
-}
-
-% Code listing settings
-\lstset{
-  basicstyle=\small\ttfamily,
-  keywordstyle=\color{blue}\bfseries,
-  commentstyle=\color{green!60!black},
-  stringstyle=\color{red},
-  showstringspaces=false,
-  breaklines=true,
-  frame=single,
-  numbers=left,
-  numberstyle=\tiny\color{gray},
-  language=Pascal
-}
-
-% Custom commands
-\newcommand{\R}{\mathbb{R}}
-\newcommand{\N}{\mathbb{N}}
-\newcommand{\Z}{\mathbb{Z}}
-
-\title{
-  \textbf{A Computational Study of Exact and Heuristic Algorithms}\\
-  \textbf{for the Maximal Covering Location Problem}\\
-  \vspace{0.5cm}
-  \large Scientific Report and Computational Analysis
-}
+\title{\textbf{A Computational Study of Exact and Heuristic Algorithms \\
+for the Maximal Covering Location Problem}}
 
 \author{
 MCLP Optimization Suite\\
-\textit{Implementation in FICO Xpress Mosel}\\
 Technical Report
 }
 
@@ -79,62 +29,17 @@ Technical Report
 This paper presents a comprehensive computational study of algorithms for solving the Maximal Covering Location Problem (MCLP), a fundamental problem in facility location theory. We implement and benchmark six different solution approaches: an exact Mixed Integer Programming (MIP) solver and five heuristic methods including Greedy, Closest Neighbor, Local Search, Multi-Start Local Search, and Tabu Search. Our experimental evaluation on instances ranging from 50 to 5000 customers demonstrates that while exact methods guarantee optimality for small instances, metaheuristic approaches provide superior performance and scalability for medium-to-large scale problems. Notably, our Local Search implementation solves the largest instance (1000 facilities, 5000 customers) to the best known solution in 0.10 seconds, while Tabu Search consistently finds optimal or near-optimal solutions across all instance sizes, outperforming the exact solver on larger instances by up to 387 units in objective value. These results provide practical guidance for practitioners and establish new benchmarks for MCLP solution methods.
 \end{abstract}
 
-\tableofcontents
-\newpage
-
 \section{Introduction}
 
-\subsection{Problem Context and Motivation}
+The Maximal Covering Location Problem (MCLP) is a classical facility location problem with widespread applications in urban planning, emergency services, telecommunications, and retail management \cite{Church1974,Murray2016}. Given a set of potential facility locations with associated opening costs and a set of customers with demands, the MCLP seeks to select a subset of facilities that maximizes the total covered customer demand while respecting a budget constraint. A customer is considered covered if at least one open facility lies within a specified coverage radius.
 
-The Maximal Covering Location Problem (MCLP) is a fundamental facility location problem with widespread applications in public and private sector decision-making \cite{Church1974,Murray2016}. The problem addresses the strategic question: \textit{Given a limited budget and a set of potential facility locations, which facilities should be opened to maximize the customer demand covered within an acceptable service distance?}
+\subsection{Motivation and Context}
 
-Real-world applications of MCLP span diverse domains:
+First introduced by Church and ReVelle \cite{Church1974}, the MCLP has received considerable attention in the operations research literature. However, as noted by Cordeau et al. \cite{Cordeau2019}, exact algorithms for large-scale instances remain scarce despite the problem's practical importance. The problem is NP-hard \cite{Megiddo1983}, making it computationally challenging for general-purpose MIP solvers as instance sizes grow.
 
-\begin{itemize}
-  \item \textbf{Emergency Services}: Positioning ambulances, fire stations, and police units to maximize population coverage within critical response times, directly impacting public safety outcomes.
+Recent advances in Benders decomposition techniques \cite{Cordeau2019} have enabled exact solution of instances with millions of customers when the number of facilities is relatively small. However, for practical applications where rapid decision-making is required or when the number of facilities is substantial, heuristic and metaheuristic approaches remain essential.
 
-  \item \textbf{Retail Location Planning}: Selecting store locations to maximize market coverage within competitive service areas, balancing investment costs against potential revenue.
-
-  \item \textbf{Public Infrastructure}: Siting hospitals, schools, libraries, and community centers to serve the maximum population while respecting budgetary constraints.
-
-  \item \textbf{Telecommunications}: Placing cell towers, Wi-Fi access points, or service centers to maximize coverage area and network reliability.
-
-  \item \textbf{Humanitarian Logistics}: Positioning relief centers in disaster response to maximize affected population access within limited resource budgets.
-\end{itemize}
-
-First introduced by Church and ReVelle \cite{Church1974} as a complement to the Set Covering Location Problem, MCLP has received considerable attention in the operations research literature. While Set Covering seeks to cover all demand with minimum cost, MCLP operates under a budget constraint and aims to maximize coverage—making it particularly relevant for resource-constrained environments where complete coverage may be infeasible or cost-prohibitive.
-
-\subsection{Computational Complexity and Challenges}
-
-The MCLP belongs to the class of NP-hard combinatorial optimization problems \cite{Megiddo1983}. As problem size increases, the number of feasible solutions grows exponentially, making exhaustive search intractable. For an instance with $|I|$ potential facility locations, there are theoretically $2^{|I|}$ possible facility configurations to consider, although the budget constraint reduces this somewhat.
-
-The computational challenge intensifies when dealing with:
-
-\begin{itemize}
-  \item \textbf{Large customer sets}: Modern applications may involve millions of demand points (e.g., census blocks, individual households in urban planning).
-
-  \item \textbf{Dense coverage graphs}: In urban areas, facilities may cover many customers, leading to complex interdependencies and symmetry in the solution space.
-
-  \item \textbf{Tight budgets}: Limited budgets create difficult trade-offs between coverage quality and cost efficiency, increasing the importance of each facility selection decision.
-\end{itemize}
-
-As noted by Cordeau et al. \cite{Cordeau2019}, exact algorithms for large-scale instances remain scarce despite the problem's practical importance. Recent advances in Benders decomposition techniques \cite{Cordeau2019} have enabled exact solution of instances with millions of customers when the number of facilities is relatively small. However, for practical applications where rapid decision-making is required or when the number of facilities is substantial, heuristic and metaheuristic approaches remain essential.
-
-\subsection{Solution Methodologies}
-
-Given the computational complexity of MCLP, researchers have developed a spectrum of solution approaches representing different trade-offs between solution quality and computational efficiency:
-
-\begin{enumerate}
-  \item \textbf{Exact Methods}: Mixed Integer Programming (MIP) formulations solved by branch-and-bound or branch-and-cut algorithms provide globally optimal solutions with optimality guarantees, but may struggle with large-scale instances.
-
-  \item \textbf{Constructive Heuristics}: Fast, greedy algorithms that build solutions iteratively by selecting facilities based on local criteria such as maximum coverage gain per unit cost.
-
-  \item \textbf{Local Search Methods}: Improvement heuristics that start from an initial solution and iteratively modify it through neighborhood moves until no further improvement is possible.
-
-  \item \textbf{Metaheuristics}: Sophisticated search algorithms like Tabu Search, Simulated Annealing, and Genetic Algorithms that employ advanced strategies to escape local optima and explore the solution space more thoroughly.
-\end{enumerate}
-
-\subsection{Objectives and Contributions}
+\subsection{Contributions}
 
 This paper makes the following contributions:
 
@@ -180,41 +85,22 @@ Among metaheuristics, Zarandi et al. \cite{Zarandi2011} used genetic algorithms 
 
 \section{Problem Formulation}
 
-\subsection{Problem Definition}
-
-The Maximal Covering Location Problem (MCLP) can be formally stated as follows:
-
-\begin{quote}
-\textit{Given a set of potential facility locations with associated opening costs, a set of customer demand points with known demands, a coverage relationship specifying which facilities can serve which customers, and a budget constraint, select which facilities to open such that the total covered demand is maximized while respecting the budget.}
-\end{quote}
-
 \subsection{Notation}
 
-We adopt the notation from Cordeau et al. \cite{Cordeau2019}, organizing our parameters into three categories for clarity:
+We adopt the notation from Cordeau et al. \cite{Cordeau2019}:
 
-\paragraph{Sets:}
 \begin{itemize}
-    \item $I$: set of potential facility locations, $|I| = n$ (indexed by $i$)
-    \item $J$: set of customer demand points, $|J| = m$ (indexed by $j$)
-    \item $I(j) \subseteq I$: subset of facilities that can cover customer $j$ (within service radius)
-    \item $J(i) \subseteq J$: subset of customers that can be covered by facility $i$
+    \item $I$: set of potential facility locations, $|I| = n$
+    \item $J$: set of customer locations, $|J| = m$
+    \item $f_i$: opening cost of facility $i \in I$
+    \item $d_j$: demand at customer location $j \in J$
+    \item $I(j)$: subset of facilities that can cover customer $j$
+    \item $J(i)$: subset of customers that can be covered by facility $i$
+    \item $B$: available budget for opening facilities
+    \item $R$: coverage radius (distance threshold)
 \end{itemize}
 
-\paragraph{Parameters:}
-\begin{itemize}
-    \item $f_i \in \R_+$: opening cost of facility $i \in I$
-    \item $d_j \in \R_+$: demand at customer location $j \in J$
-    \item $B \in \R_+$: available budget for opening facilities
-    \item $R \in \R_+$: coverage radius (maximum distance threshold for service)
-\end{itemize}
-
-\paragraph{Decision Variables:}
-\begin{itemize}
-    \item $y_i \in \{0,1\}$: binary variable indicating whether facility $i$ is opened ($y_i=1$) or not ($y_i=0$)
-    \item $z_j \in [0,1]$: variable indicating whether customer $j$ is covered ($z_j=1$) or not ($z_j=0$)
-\end{itemize}
-
-Customer $j$ is covered by facility $i$ if the distance between them does not exceed radius $R$. That is, $i \in I(j)$ if and only if $dist(i,j) \leq R$, where distance is typically measured using Euclidean or Manhattan metrics.
+Customer $j$ is covered by facility $i$ if the distance between them does not exceed radius $R$. That is, $i \in I(j)$ if and only if $dist(i,j) \leq R$.
 
 \subsection{Mathematical Model}
 
@@ -228,32 +114,7 @@ The MCLP can be formulated as the following mixed-integer program:
 & z_j \in [0,1] \quad \forall j \in J \label{eq:continuous-z}
 \end{align}
 
-\paragraph{Constraint Explanation:}
-
-\begin{itemize}
-  \item \textbf{Objective Function} \eqref{eq:obj}: Maximizes the total covered demand across all customer locations.
-
-  \item \textbf{Budget Constraint} \eqref{eq:budget}: Ensures the total cost of opened facilities does not exceed the available budget $B$.
-
-  \item \textbf{Coverage Constraints} \eqref{eq:covering}: Linking constraints that guarantee customer $j$ can only be covered ($z_j > 0$) if at least one facility from $I(j)$ (the set of facilities capable of covering $j$) is opened.
-
-  \item \textbf{Facility Integrality} \eqref{eq:binary-y}: Facility location variables must be binary—each facility is either opened or not.
-
-  \item \textbf{Coverage Variables} \eqref{eq:continuous-z}: Following \cite{Cordeau2019}, we relax the integrality requirement on $z_j$ variables. Due to the maximization objective and constraint structure, these variables naturally take binary values at optimality without requiring explicit integrality constraints.
-\end{itemize}
-
-\subsection{Model Characteristics}
-
-\paragraph{Problem Size:}
-For an instance with $|I|$ facilities and $|J|$ customers, the compact formulation has:
-\begin{itemize}
-  \item \textbf{Variables}: $|I|$ binary variables + $|J|$ continuous variables = $|I| + |J|$ total
-  \item \textbf{Constraints}: $|J|$ coverage constraints + 1 budget constraint = $|J| + 1$ total
-  \item \textbf{Nonzeros}: Approximately $\sum_{j \in J} |I(j)|$ (depends on coverage density and radius $R$)
-\end{itemize}
-
-\paragraph{LP Relaxation Quality:}
-The LP relaxation of MCLP often provides tight bounds \cite{Church1974,Snyder2011}. Empirical studies show that for many practical instances, the LP relaxation is integral or near-integral, with optimality gaps typically in the range of 0-5\% for moderately sized instances. This property makes branch-and-bound approaches particularly effective for small to medium instances.
+The objective function \eqref{eq:obj} maximizes the total covered demand. Constraint \eqref{eq:budget} ensures the budget is not exceeded. Linking constraints \eqref{eq:covering} guarantee that customer $j$ can only be covered ($z_j > 0$) if at least one facility capable of covering $j$ is open. Variables $y_i$ are binary facility location decisions \eqref{eq:binary-y}, while coverage variables $z_j$ can be relaxed to continuous \eqref{eq:continuous-z} without loss of optimality \cite{Cordeau2019}.
 
 \subsection{Computational Complexity}
 
@@ -795,415 +656,5 @@ The large scale maximal covering location problem.
 \textit{Scientia Iranica}, 18(6), 1564--1570.
 
 \end{thebibliography}
-
-\newpage
-\appendix
-
-\section{Implementation Guide and Source Code Documentation}
-
-This appendix provides comprehensive documentation for practitioners to use, understand, and extend the MCLP algorithm implementations presented in this study.
-
-\subsection{Data File Format Specification}
-
-All algorithms read instance data from standardized \texttt{.dat} files with the following structure:
-
-\begin{lstlisting}
-! MCLP Instance Data File Format
-! Comments begin with exclamation mark
-
-! Problem dimensions
-I: 50          ! Number of potential facilities
-J: 200         ! Number of customer demand points
-BUDGET: 10.0   ! Available budget
-
-! Index sets
-FACILITIES: [0..49]
-CUSTOMERS: [0..199]
-
-! Facility costs (array of length I)
-COST: [1.23, 4.56, 2.34, 5.67, ...]
-
-! Customer demands (array of length J)
-DEMAND: [10, 15, 20, 25, 12, 8, ...]
-
-! Coverage relationships
-! COVERAGE_I_j: For each facility i, list customers it covers
-COVERAGE_I_j: [
-  (0) {1 5 12 23 45 ...}
-  (1) {3 7 9 15 22 ...}
-  ...
-]
-
-! COVERAGE_J_i: For each customer j, list facilities that cover it
-COVERAGE_J_i: [
-  (0) {2 8 13 24 ...}
-  (1) {4 6 10 18 ...}
-  ...
-]
-\end{lstlisting}
-
-\paragraph{Format Requirements:}
-\begin{itemize}
-  \item Arrays use comma-separated values enclosed in square brackets
-  \item Coverage sets use set notation: \texttt{(index) \{elements\}}
-  \item Indices are zero-based: facilities $0 \ldots I-1$, customers $0 \ldots J-1$
-  \item Real numbers use decimal notation (e.g., 10.0, 3.14)
-  \item Comments are optional but recommended for documentation
-\end{itemize}
-
-\subsection{Algorithm Implementations}
-
-All six algorithms are implemented as standalone Mosel programs (\texttt{.mos} files). Each implementation follows a consistent structure for ease of use and maintenance.
-
-\subsubsection{Exact MIP Solver: \texttt{mclp\_exact.mos}}
-
-\paragraph{Description:}
-Implements the compact MIP formulation (Section 3) using FICO Xpress Optimizer.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Configurable time limits and MIP gap tolerance
-  \item Comprehensive solution validation and reporting
-  \item Dual bound tracking for optimality proof
-  \item Automatic handling of infeasibility
-\end{itemize}
-
-\paragraph{Configurable Parameters:}
-\begin{lstlisting}[language=Pascal]
-parameters
-  DATA_FILE = "data/instance.dat"  ! Input data file
-  TIME_LIMIT = 600                 ! Solver time limit (seconds)
-  MIP_GAP = 0.01                   ! Optimality gap (1%)
-  RELAX_Z = true                   ! Relax coverage variables
-end-parameters
-\end{lstlisting}
-
-\paragraph{Usage:}
-\begin{lstlisting}[language=bash]
-mosel exec mclp_exact.mos "DATA_FILE=data/S1.dat"
-mosel exec mclp_exact.mos "DATA_FILE=data/XL1.dat TIME_LIMIT=300"
-\end{lstlisting}
-
-\paragraph{Output:}
-Reports objective value, solution time, MIP gap, and selected facilities.
-
-\subsubsection{Greedy Heuristic: \texttt{mclp\_greedy.mos}}
-
-\paragraph{Description:}
-Constructive heuristic selecting facilities with maximum coverage gain per cost.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Fast execution (typically <0.1s)
-  \item Deterministic results
-  \item Good baseline for comparison
-  \item Suitable for warm-starting other algorithms
-\end{itemize}
-
-\paragraph{Usage:}
-\begin{lstlisting}[language=bash]
-mosel exec mclp_greedy.mos "DATA_FILE=data/M1.dat"
-\end{lstlisting}
-
-\subsubsection{Closest Neighbor Heuristic: \texttt{mclp\_closest\_neighbor.mos}}
-
-\paragraph{Description:}
-Distance-based construction prioritizing facilities closest to high-demand customers.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Simple implementation
-  \item Exploits spatial structure
-  \item Effective for geographically clustered instances
-\end{itemize}
-
-\subsubsection{Local Search: \texttt{mclp\_local\_search.mos}}
-
-\paragraph{Description:}
-Improvement heuristic using facility swap and flip neighborhoods.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Exceptional scalability (0.01-0.25s for all tested instances)
-  \item Delta-evaluation for efficient move assessment
-  \item Multiple neighborhood structures (1-flip, swap)
-  \item Automatic convergence detection
-\end{itemize}
-
-\paragraph{Configurable Parameters:}
-\begin{lstlisting}[language=Pascal]
-parameters
-  DATA_FILE = "data/instance.dat"
-  INIT_METHOD = "greedy"           ! Initial solution method
-  MAX_ITER = 1000                  ! Maximum iterations
-end-parameters
-\end{lstlisting}
-
-\paragraph{Usage:}
-\begin{lstlisting}[language=bash]
-mosel exec mclp_local_search.mos "DATA_FILE=data/L1.dat"
-mosel exec mclp_local_search.mos "DATA_FILE=data/XXL1.dat INIT_METHOD=random"
-\end{lstlisting}
-
-\subsubsection{Multi-Start Local Search: \texttt{mclp\_multistart.mos}}
-
-\paragraph{Description:}
-Runs local search from multiple diverse initial solutions.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Improved robustness through diversification
-  \item Configurable number of restarts
-  \item Global best tracking
-  \item Suitable for production deployment
-\end{itemize}
-
-\paragraph{Configurable Parameters:}
-\begin{lstlisting}[language=Pascal]
-parameters
-  DATA_FILE = "data/instance.dat"
-  NUM_STARTS = 10                  ! Number of random restarts
-  VERBOSE = false                  ! Detailed output per restart
-end-parameters
-\end{lstlisting}
-
-\subsubsection{Tabu Search: \texttt{mclp\_tabu\_search.mos}}
-
-\paragraph{Description:}
-Advanced metaheuristic with tabu list, aspiration criteria, and diversification.
-
-\paragraph{Key Features:}
-\begin{itemize}
-  \item Best overall solution quality
-  \item Short-term memory (tabu list) prevents cycling
-  \item Aspiration criterion for exceptional moves
-  \item Intensification and diversification strategies
-  \item Candidate list restriction for efficiency
-\end{itemize}
-
-\paragraph{Configurable Parameters:}
-\begin{lstlisting}[language=Pascal]
-parameters
-  DATA_FILE = "data/instance.dat"
-  MAX_ITER = 500                   ! Maximum iterations
-  TABU_TENURE = 10                 ! Tabu list tenure
-  CANDIDATE_SIZE = 20              ! Candidate list size
-  INTENSIFY_FREQ = 50              ! Intensification frequency
-  DIVERSIFY_LIMIT = 100            ! Diversification trigger
-end-parameters
-\end{lstlisting}
-
-\paragraph{Usage:}
-\begin{lstlisting}[language=bash]
-mosel exec mclp_tabu_search.mos "DATA_FILE=data/XL1.dat"
-mosel exec mclp_tabu_search.mos "DATA_FILE=data/M2.dat MAX_ITER=1000"
-\end{lstlisting}
-
-\subsection{Running Experiments}
-
-\subsubsection{Single Algorithm Execution}
-
-To run a specific algorithm on a single instance:
-
-\begin{lstlisting}[language=bash]
-# Navigate to project directory
-cd /path/to/MCLP
-
-# Run exact solver
-mosel exec src/mclp_exact.mos "DATA_FILE=data/S1.dat"
-
-# Run tabu search with custom parameters
-mosel exec src/mclp_tabu_search.mos "DATA_FILE=data/XL1.dat MAX_ITER=1000"
-\end{lstlisting}
-
-\subsubsection{Batch Execution for Benchmarking}
-
-For systematic benchmarking across all algorithms and instances, use the provided automation script:
-
-\begin{lstlisting}[language=bash]
-# Windows PowerShell
-.\run_benchmark.ps1
-
-# Linux/macOS bash
-./run_benchmark.sh
-\end{lstlisting}
-
-The benchmark script performs:
-\begin{enumerate}
-  \item Compilation of all \texttt{.mos} files
-  \item Execution of each algorithm on each instance
-  \item Output logging to \texttt{results/} directory with timestamps
-  \item Time limit enforcement for exact solver
-  \item Error handling and reporting
-\end{enumerate}
-
-\paragraph{Output Files:}
-Results are saved in structured format:
-\begin{lstlisting}
-results/
-  exact/
-    S1_results.txt
-    M1_results.txt
-    ...
-  greedy/
-    S1_results.txt
-    ...
-  tabu_search/
-    ...
-  summary_YYYY-MM-DD.csv
-\end{lstlisting}
-
-\subsubsection{Result Analysis and Visualization}
-
-To generate performance summaries and visualizations:
-
-\begin{lstlisting}[language=bash]
-# Summarize results to CSV/LaTeX tables
-.\summarize_results.ps1
-
-# Generate figures (requires Python with matplotlib, pandas)
-python scripts/generate_visualizations.py
-
-# Compile LaTeX tables
-cd figures
-pdflatex performance_table.tex
-\end{lstlisting}
-
-This produces:
-\begin{itemize}
-  \item \texttt{figures/performance\_table.tex}: Solution quality comparison
-  \item \texttt{figures/runtime\_comparison.pdf}: Runtime bar charts
-  \item \texttt{figures/runtime\_vs\_size.pdf}: Scalability analysis
-  \item \texttt{figures/solution\_quality\_vs\_size.pdf}: Quality trends
-\end{itemize}
-
-\subsection{Extending the Implementation}
-
-\subsubsection{Adding New Instance Generators}
-
-To create custom instances:
-
-\begin{lstlisting}[language=bash]
-python scripts/generate_instance.py \
-  --facilities 300 \
-  --customers 1500 \
-  --budget 25 \
-  --radius 4.0 \
-  --output data/custom_instance.dat
-\end{lstlisting}
-
-\subsubsection{Implementing Algorithm Variants}
-
-To create a new algorithm variant:
-\begin{enumerate}
-  \item Copy an existing \texttt{.mos} file (e.g., \texttt{mclp\_local\_search.mos})
-  \item Modify the search strategy while preserving data loading and validation logic
-  \item Add new parameters as needed in the \texttt{parameters} block
-  \item Test on small instances before scaling to large problems
-  \item Document changes in code comments
-\end{enumerate}
-
-\subsubsection{Performance Tuning Guidelines}
-
-For optimal performance on specific instance classes:
-
-\begin{enumerate}
-  \item \textbf{Exact Solver:}
-  \begin{itemize}
-    \item Reduce \texttt{MIP\_GAP} for tighter optimality on small instances
-    \item Increase \texttt{TIME\_LIMIT} for challenging instances
-    \item Consider enabling additional Xpress controls (e.g., \texttt{XPRS\_HEURSTRATEGY})
-  \end{itemize}
-
-  \item \textbf{Tabu Search:}
-  \begin{itemize}
-    \item Increase \texttt{MAX\_ITER} for larger or more challenging instances
-    \item Tune \texttt{TABU\_TENURE}: typically $\sqrt{|I|}$ to $2\sqrt{|I|}$
-    \item Adjust \texttt{CANDIDATE\_SIZE}: larger for dense instances, smaller for sparse
-  \end{itemize}
-
-  \item \textbf{Multi-Start:}
-  \begin{itemize}
-    \item Scale \texttt{NUM\_STARTS} with instance difficulty (5-20 typical range)
-    \item Consider parallel execution for independent starts
-  \end{itemize}
-\end{enumerate}
-
-\subsection{Software Requirements and Dependencies}
-
-\paragraph{Required Software:}
-\begin{itemize}
-  \item FICO Xpress Mosel 5.0 or later
-  \item FICO Xpress Optimizer 12.0 or later (for exact solver)
-  \item Python 3.7+ (for instance generation and visualization)
-\end{itemize}
-
-\paragraph{Python Dependencies:}
-\begin{lstlisting}[language=bash]
-pip install numpy pandas matplotlib scipy
-\end{lstlisting}
-
-\paragraph{License Considerations:}
-\begin{itemize}
-  \item Xpress Community Edition: Free, limited to 5000 variables/constraints
-  \item Xpress Commercial License: Required for instances exceeding community limits
-  \item Heuristics have no license restrictions
-\end{itemize}
-
-\subsection{Troubleshooting}
-
-\subsubsection{Common Issues}
-
-\paragraph{Issue: Exact solver fails with "too many variables"}
-\begin{itemize}
-  \item \textbf{Cause:} Xpress Community Edition limit exceeded
-  \item \textbf{Solution:} Use heuristics (Local Search, Tabu Search) or upgrade license
-\end{itemize}
-
-\paragraph{Issue: Tabu Search crashes on large instances}
-\begin{itemize}
-  \item \textbf{Cause:} Array index out of bounds (implementation limitation)
-  \item \textbf{Solution:} Use Local Search or Multi-Start for massive instances (>2000 customers)
-\end{itemize}
-
-\paragraph{Issue: Inconsistent results across runs}
-\begin{itemize}
-  \item \textbf{Cause:} Randomized algorithms (Multi-Start, random initialization)
-  \item \textbf{Solution:} Set random seed or use deterministic algorithms (Greedy, single-start Local Search)
-\end{itemize}
-
-\paragraph{Issue: Slow performance on medium instances}
-\begin{itemize}
-  \item \textbf{Cause:} Inefficient data structures or coverage evaluation
-  \item \textbf{Solution:} Enable delta-evaluation, reduce \texttt{MAX\_ITER}, or use Greedy for baseline
-\end{itemize}
-
-\subsection{Best Practices}
-
-\begin{enumerate}
-  \item \textbf{Always validate data files} before running algorithms (check for consistency, proper indexing)
-  \item \textbf{Start with small instances} when testing new algorithm variants
-  \item \textbf{Use Greedy as a quick baseline} to verify problem setup and expected objective range
-  \item \textbf{Document parameter choices} and rationale for reproducibility
-  \item \textbf{Save results systematically} with timestamps and instance metadata
-  \item \textbf{Compare multiple algorithms} on the same instance to understand trade-offs
-  \item \textbf{Monitor memory usage} for very large instances (>10,000 customers)
-\end{enumerate}
-
-\subsection{Citation and Licensing}
-
-If you use these implementations in your research or applications, please cite:
-
-\begin{quote}
-\textit{A Computational Study of Exact and Heuristic Algorithms for the Maximal Covering Location Problem.} MCLP Optimization Suite Technical Report, 2025.
-\end{quote}
-
-All source code is provided for educational and research purposes. Commercial use should acknowledge the original work and comply with Xpress licensing requirements.
-
-\vspace{1cm}
-\noindent
-\textbf{For questions, bug reports, or contributions:}\\
-Repository: \url{https://github.com/[repository-name]/MCLP}\\
-Contact: [contact-email]
 
 \end{document}
