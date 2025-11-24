@@ -1,0 +1,641 @@
+\documentclass[final,5p,times,twocolumn]{elsarticle}
+% Packages for math and formatting
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{hyperref}
+% Journal name setup
+\journal{European Journal of Operational Research}
+\begin{document}
+\begin{frontmatter}
+% --- Title Section ---
+% Subject classification (appearing above title in image)
+\tnotetext[t1]{Discrete Optimization}
+\title{Benders decomposition for very large scale partial set covering and maximal covering location problems}
+% --- Authors and Affiliations ---
+\author[1]{Syed Abbas Ahmad}
+\ead{abbas.bsphysics@pieas.edu.pk}
+\author[2]{Fabio Furini\corref{cor1}}
+\ead{fabio.furini@dauphine.fr}
+\author[3]{Ivana Ljubić}
+\ead{ivana.ljubic@essec.edu}
+\address[1]{HEC Montréal, 3000 chemin de la Côte-Sainte-Catherine, H3T 2A7, Montréal, Canada}
+\address[2]{Université Paris-Dauphine, PSL Research University, CNRS, LAMSADE, 75016 Paris, France}
+\address[3]{ESSEC Business School of Paris, 3 Av. Bernard Hirsch, B.P. 50105, 95021 Cergy Pontoise Cedex, France}
+\cortext[cor1]{Corresponding author.}
+% --- Abstract ---
+\begin{abstract}
+Covering problems constitute a fundamental family of facility location problems. This paper introduces a new exact algorithm for two important members of this family: (i) the maximal covering location problem (MCLP), which requires finding a subset of facilities that maximizes the amount of customer demand covered while respecting a budget constraint on the cost of the facilities; and (ii) the partial set covering location problem (PSCLP), which minimizes the cost of the open facilities while forcing a certain amount of customer demand to be covered. We study an effective decomposition approach to the two problems based on the branch-and-Benders-cut reformulation. Our new approach is designed for the realistic case in which the number of customers is much larger than the number of potential facility locations. We report the results of a series of computational experiments demonstrating that, thanks to this decomposition techniques, optimal solutions can be found very quickly for some benchmark instances with one hundred potential facility locations and involving up to 15 and 40 million customer demand points for the MCLP and the PSCLP, respectively.
+\end{abstract}
+% --- Keywords ---
+\begin{keyword}
+Combinatorial optimization \sep 
+Location problems \sep 
+Covering \sep 
+Benders decomposition \sep 
+Branch-and-cut algorithms
+\end{keyword}
+\end{frontmatter}
+% --- Main Content ---
+\section{Introduction}
+Covering problems constitute an important family of facility location problems with widespread applications. These problems embed a notion of proximity (or coverage radius) that specifies whether a given demand point can be served or ``covered'' by a potential facility location. Proximity is often defined in terms of distance or travel time between points.
+
+To handle continuous space covering location problems \cite{plastria2002,wei2015}, it is often more practical to approximate these problems and solve them as if they were discrete. The optimal solution obtained by this discretization process can be very sensitive to the level of discretization of the continuous demand (see, e.g., \cite{daskin1995,khanal2020,daslandraki1989}). However, the finer the discretization, the harder it is to solve the resulting optimization problem.
+
+It has often been observed that the LP relaxation value of a mixed integer programming (MIP) formulation to the SCLP provides a very good lower bound and that the continuous solution has few fractional variables \cite{revelle1993,snyder2011,toregas1971}. In particular, for the case where the objective is to minimize the number of open facilities, the LP relaxation solution is often integral. This makes it relatively easy to solve the SCLP exactly or to obtain high quality heuristic solutions. \cite{church1974} and \cite{snyder2011} also report that the LP relaxation to the MCLP is often integer. Nevertheless, the integrality gap tends to grow with the size of the instances, making the solution of large-scale instances a challenge for general-purpose mixed-integer programming solvers. Surprisingly, very few exact algorithms have been developed to solve the MCLP and the PSCLP.
+
+The primary aim of this paper is to introduce a new decomposition technique based on Benders decomposition that is capable of solving large-scale instances of the two problems for the realistic case where the number of demand points is much larger than the number potential facility locations. As mentioned above, discrete location problems are often used to model situations that inherently involve information on decisions related to a continuous customer demand. Hence, if one can afford to handle large sets of demand points, the quality of the resulting solution can be significantly improved. While many heuristics have been described for the MCLP, exact algorithms are very scarce. In addition, the PSCLP has received very little attention in the scientific literature despite its practical relevance. Because these two problems have similar features, we propose to solve them with a unified methodology that takes advantage of their particular structure. The resulting algorithm yields optimal solutions to instances with huge sets of demand points in reasonable computing times. We also introduce and make available new large-scale instances that can be used as benchmark by other authors interested in covering location problems.
+
+The remainder of the paper is organized as follows. Section~\ref{sec:lit} reviews the relevant literature on the SCLP, MCLP and PSCLP. This is followed in Section~\ref{sec:formulation} by the formal definition and mathematical formulation of the two problems under study. Section~\ref{sec:benders} and~\ref{sec:algo} then describe in detail our Benders decomposition approach. Computational results are presented in Section~\ref{sec:results} and the conclusion follows in Section~\ref{sec:conclusion}.
+
+\section{Literature review}
+\label{sec:lit}
+
+To the best of our knowledge, the first mention of the minimum cost covering problem in the context of location can be attributed to \cite{hakimi1965}, who gave as an example the problem of locating the minimum number of policemen so that everyone is within a given distance $d$ from a policeman. Hakimi represents the problem with a Boolean function defined over the vertices of a graph and suggests a solution procedure based on enumeration. A few years later, \cite{toregas1971} introduced the first integer programming formulation of the problem and discussed its application to the location of emergency service facilities in a discrete space. In related research, \cite{walker1974} formulated the problem of assigning ladder trucks to fire stations as a minimum cost covering problem and proposed a heuristic to solve it.
+
+The MCLP was first introduced by \cite{church1974} who provide an integer programming formulation of the problem. \cite{current1983} explain that the problem is NP-hard by reduction from the minimum dominating set problem. \cite{murray2016} provides a recent survey of the MCLP and gives a wide array of its applications. It should be noted that most papers on this problem impose an upper bound on the number of facilities instead of the more general budget constraint considered here.
+
+Because the LP relaxation of the standard MIP formulation of the MCLP provides very good lower bounds, the problem is often solved by a branch-and-bound algorithm in which the bounds are computed by solving the continuous relaxation of the problem by a simplex algorithm. In the computational experiments performed by \cite{snyder2011}, for more than 95\% of the instances solved the LP relaxation of the problem was integral and no branching was required. These experiments were performed on instances with up to 800 demand points and facility locations and at time limit of 6 hours was given. In general, the value of the constraint bound on the number of open facilities. The more general budget constraint that one considers here is new and more fractional solutions arise when one imposes a simple upper bound on the number of facilities. In addition, instances with millions of demand points become intractable for general-purpose solvers and just solving the IP relaxation can be a challenge.
+
+We are aware of only one exact algorithm for the MCLP. \cite{downs1996} dualize the covering constraints by Lagrangian relaxation to obtain a binary knapsack problem. They then use subgradient optimization to solve the Lagrangian dual. Since the Lagrangean subproblem has the integrality property, the best bound obtained in this way is equal to the LP relaxation lower bound. This method is embedded in a branch-and-bound tree to obtain an optimal integer solution. The authors reported results on several data sets and the largest instance considered had 2241 demand points and 74 potential facility locations.
+
+Several heuristics exist for the MCLP, many of which rely on a Lagrangean relaxation of the covering constraints. \cite{church1974} describe a greedy heuristic that adds at each iteration the facility that increases the most the objective function value. They also introduce a variant of the heuristic that checks at each iteration whether swapping an open facility for a closed one can improve the solution. \cite{galvao1996} describe a Lagrangean heuristic that uses the same relaxation of the covering constraints as \cite{downs1996}. They also employ subgradient optimization to solve the Lagrangean dual. Feasible integer solutions are obtained by heuristics similar to that of \cite{church1974}. \cite{galvao2000} compare heuristics based on Lagrangean relaxation or a surrogate relaxation. \cite{senne2010} introduce a decomposition heuristic that relies on a partial relaxation of the covering constraints, which yields stronger bounds than those obtained from the LP relaxation.
+
+Several metaheuristics have also been described for the MCLP. In particular, \cite{revelle2008} apply the concept of heuristic concentration to the MCLP. Heuristic concentration consists in first reducing the solution space by discarding potential facility locations that are not likely to appear in an optimal solution, before applying branch-and-bound or a local search heuristic to the reduced problem. \cite{zarandi2011} use a genetic algorithm to solve large-scale instances of the problem with up to 2500 nodes. Finally, \cite{maximo2017} describe a guided adaptive search algorithm which they apply to instances with up to 7730 nodes.
+
+As mentioned in the previous section, by the PSCLP has been the object of little research after its introduction by \cite{daskin1999}, who solved the problem with a Lagrangian heuristic similar to that of \cite{galvao1996} and reported results on instances with up to 150 nodes. There are nonetheless other studies addressing similar partial set covering problems in other contexts than location. For example, Bilal, Galinier, and Guibault (2014) describe an iterated tabu search heuristic for a variant of the problem arising in a mining application. Finally, Berman, Krass, and Drezner (2003) study a related problem in which customers whose distance falls between a lower and an upper bound from their nearest facility are only partially covered.
+
+We refer to the recent book of Laporte, Nickel, and Gama (2015) for a general overview of location problems and to the survey chapters of Snyder (2011) and García and Marín (2015) for specific reviews on covering problems. Farahani et al. (2012) also provide a classification and review of many variants of covering location problems.
+
+\section{Problem definition}
+
+In this section, we formally define the two problems that are considered throughout the paper and we provide a mathematical formulation for each one.
+
+In the covering facility location problems studied in this paper, we are given a set of potential facility locations $I$ with opening costs $f_i \ge 0,\, i \in I$, and a set of customer locations $J$ such that each customer $j \in J$ is associated with a demand $d_j \ge 0$. For each customer $j$, we are also given a subset $J_j(I)$ of facility locations that can “cover” $j$, i.e., that can fully serve the demand $d_j$. Similarly, let $J(K)$ for a subset of facilities $K \subseteq I$, be the subset of customers covered by $K$, and let $D(f) = \sum_{j \in f} d_j$ for $f \in I$. For a subset of customers $f' \subseteq J$, let $D(f') = \sum_{j \in f'} d_j$ be the total demand of the customers in $f'$. Finally, let $J_j(I)$ be the set of customers that are covered by a single facility, i.e., $J_j = \{ j \in J : |J(j)| = 1 \}$. In particular, for $j \in J_s$, let $i(j)$ be the single facility that can cover this customer. Similarly, for a subset of facilities $K \subseteq I$, let $J_s(K)$ be the set of all customers that are covered by a single facility from $K$, i.e.,
+\[
+J_s(K) = \{ j \in J : i(j) \in K \}.
+\]
+
+In Fig.~1, we provide an example with 4 facilities (represented by the white vertices) and 8 customers (represented by the grey vertices). The incident edges to a customer vertex are linked to the facilities covering this customer, i.e., to the set $J(j)$; while the incident edges to a facility vertex represent the set of customers covered by the facility, i.e., the set $J(i)$. For a subset of facilities $K = \{1,2\}$, we graphically illustrate definitions of the terms introduced above.
+
+\subsection{The partial set covering location problem (PSCLP)}
+
+Given a parameter $D > 0$, the PSCLP asks for a subset of facilities to open so as to make sure that the covered customer demand is at least $D$ and the cost for opening the facilities is minimized.
+
+The problem can be formulated with two sets of binary variables. For every potential facility location $i \in I$, let $y_i$ take value 1 if and only if facility $i$ is open and, for every customer $j \in J$, let $z_j$ take value 1 if and only if customer $j$ is covered by at least one open facility. The problem can then be formulated as the following integer linear programming model:
+\[
+\min \sum_{i \in I} f_i y_i \tag{1}
+\]
+\[
+\sum_{i \in J(j)} y_i \ge z_j \qquad j \in J \tag{2}
+\]
+\[
+\sum_{j \in J} d_j z_j \ge D \tag{3}
+\]
+\[
+y_i \in \{0,1\} \qquad i \in I \tag{4}
+\]
+\[
+z_j \in \{0,1\} \qquad j \in J. \tag{5}
+\]
+
+In this model, the objective function (1) minimizes the cost of open facilities, whereas constraint (3) ensures that the covered customer demand is larger than or equal to $D$. The linking constraints (2) guarantee that whenever a customer $j$ is covered, at least one of the facilities from its neighborhood is open. Finally, constraints (4) and (5) impose binary restrictions on decision variables $y$ and $z$, respectively.
+
+\subsection{The maximal covering location problem (MCLP)}
+
+The second problem that we consider is the maximal covering location problem (MCLP). This problem consists of selecting a subset of facilities to open so as to maximize the covered customer demand, subject to available budget $B > 0$ on the cost of open facilities.
+
+Using the same variables as for the PSCLP, the MCLP can be formulated as follows:
+\[
+\max \sum_{j \in J} d_j z_j \tag{6}
+\]
+
+\[
+\sum_{i \in I} f_i y_i \le B \tag{7}
+\]
+
+(2), (4), (5).
+
+Compared to the PSCLP, we observe that the objective function and the demand constraint are swapped, so that now the objective function defined by (6) maximizes the covered demand, whereas the knapsack-like constraint (7) ensures that the available budget $B$ for opening the facilities is not exceeded. The remaining constraints are the same as for the PSCLP.
+
+We now make an observation that is valid for both the PSCLP and the MCLP.
+
+\textbf{Property 1.} In both ILP formulations for the PSCLP and MCLP, integrality conditions (5) can be relaxed to $z_j \in [0,1],\ j \in J$.
+
+To see that this property holds for the PSCLP, assume that we relax the integrality conditions on the $z$ variables and that we obtain an optimal solution $(\bar y, \bar z)$ such that for some $j \in J_s$ we have $\bar z_j < 1$ holds. In that case, for each customer $j \in J$ one can redefine $z_j = 1$, without changing the value of the objective function. Similarly, assume that an optimal MCLP solution $(\bar y, \bar z)$ is such that for some $j \in J_s$, $0 < \bar z_j < 1$ holds. Then by setting $z_j = 1$ for each customer $j \in J_s$, we obtain a strictly better objective function value and hence such a solution cannot be optimal.
+
+Based on Property~1, we study a Benders decomposition approach in which $z$ variables are projected out from the model and replaced by corresponding \emph{Benders feasibility cuts} (for the PSCLP) and \emph{Benders optimality cuts} (for the MCLP).
+
+Let $\bar z_j = \min\{1, \bar I_j\}$ with $\bar I_j = \sum_{i \in I(j)} \bar y_i$ represent the number of facilities covering customer $j$. Consequently, the value of $z_j$ for any $j \in J$ can be set as
+\[
+z_j = \min\{ 1, \bar I_j \}.
+\]
+
+In the following, we propose a linear way to project out the $z$ variables from the model, using the Benders decomposition approach.
+
+\section{Benders decomposition for the PSCLP}
+
+In the following, we focus on the PSCLP and describe several types of Benders cuts. We start with those obtained in a standard way, i.e., by dualizing the Benders subproblem. We refer to these cuts as \emph{LP-based Benders cuts}. Later, in Section~4.2, we propose a normalization technique that yields several closed formulas for deriving valid Benders cuts. We show that the latter can be separated in linear time, and we compare their relative strength. Finally, in Section~4.3, we apply a technique recently proposed by Conforti and Wolsey (2016), to derive facet-defining Benders cuts.
+
+\subsection{LP-based Benders cuts}
+
+By projecting out the $z$ variables from the model, we obtain the following Benders master problem:
+\[
+\min \left\{ \sum_{i \in I} f_i y_i : B(y) \ge 0,\ t \in P,\ y_i \in \{0,1\},\ i \in I \right\}, \tag{8}
+\]
+where $B(y)$ refers to Benders feasibility cuts corresponding to extreme rays $t$ of the polyhedron $P$ associated to the linear programming dual of the Benders subproblem. For a given vector $\bar y \in \{0,1\}^{|I|}$, the Benders primal subproblem reads as follows:
+\[
+\min\left\{ 0 \ge z_j \le 1,\ \sum_{j \in J} d_j z_j \ge D,\ 0 \le z_j \le 1,\ j \in J \right\}. \tag{9}
+\]
+
+Its dual is given as:
+\[
+\max \left\{ D\gamma - \sum_{j \in J} (t_j + \sigma_j) : (\pi, \sigma, \gamma) \in P \right\}, \tag{10}
+\]
+where $\pi$, $\gamma$, and $\sigma$ are dual variables associated to the constraints of (9), respectively. These variables are constrained to belong to the polyhedron $P$ which is defined as:
+\[
+P = \left\{ (\pi, \gamma, \sigma) \ge 0 : \pi_j + \sigma_j \ge d_j \gamma,\ j \in J \right\}. \tag{11}
+\]
+
+From the LP duality theory we know that the primal subproblem (9) is infeasible if its dual is unbounded. Let $(\hat\pi, \hat\gamma, \hat\sigma)$ be an extreme ray of the unbounded dual subproblem. Then the associated \emph{Benders feasibility cut} can be written as:
+\[
+\sum_{i \in I(j)} \hat\pi_j y_i \ge D \hat\gamma - \sum_{j \in J} d_j \hat\sigma_j. \tag{B}
+\]
+
+There is an exponential number of extreme rays $t \in P$, which makes it impractical to enumerate all of them in advance. Since not all Benders feasibility cuts are necessary to find an optimal solution, only a subset of them will be separated by the decomposition approach. The formulation (8) containing only a subset of Benders cuts will be referred to as the \emph{relaxed master problem}.
+
+When implementing a Benders decomposition algorithm, the Benders subproblem must be solved in each iteration. In a classical branch-and-cut procedure, the latter approach has become more popular in the recent literature (see, e.g., Fischetti, Ljubić, and Sinnl, 2016; Fischetti, Ljubić, Sinnl, 2017; Ljubić, Putz, \& González, 2012), primarily because it involves solving only one master problem to optimality, unlike the cutting plane method, which solves a master problem to optimality in each iteration. In addition, standard MILP techniques like primal heuristics, variable fixing, and preprocessing are combined in a more efficient manner with the Benders decomposition. Accordingly, we implement the formulation (8) by separating constraints (B) on the fly, within a branch-and-cut framework. Note that, since the $z$ variables do not appear in the objective function (1), Benders optimality cuts are not needed.
+
+It is well-known that the LP relaxation of (8) gives the same lower bounds as the corresponding compact formulation (1)–(5). However, the way in which the separation of these Benders cuts is implemented heavily affects the overall performance of a branch-and-Benders-cut approach and the overall number of cuts necessary to obtain this bound. A straightforward implementation requires solving the dual subproblem (10) as an LP and deriving cuts from the respective extreme rays. As already observed e.g. in Benders (1962), Fischetti, Salvagnin, and Zanette (2010), and Ljubić et al. (2012), this approach has a significant drawback: it returns an arbitrary chosen extreme ray without having any positive influence on the quality of the violated cut found. As a consequence, convergence may be slowed down due to the fact that shallow cuts are often generated. Among the successful strategies to overcome these difficulties are the \emph{normalization techniques}. In general, normalization of Benders cuts consists of solving an LP over a bounded polyhedron, as opposed to optimizing over an unbounded one. There is an abundant literature on different normalization techniques for Benders feasibility cuts, see, e.g., Fischetti et al. (2010), Ljubić et al. (2012), Magnanti and Wong (1981), and Papadakos (2008). In our work, we consider two normalization approaches for bounding the dual cone.
+
+\subsection{4.2. Normalized Benders feasibility cuts for the PSCLP}
+
+In this section we focus on a particular normalization of Benders cuts that appears very natural in the context of the PSCLP. We namely exploit the fact that the solution $\bar y$ of the relaxed master problem is infeasible if and only if the demand covered by $\bar y$ is strictly less than $D$. Hence, instead of solving a feasibility LP given by (9), we search for the maximum demand that can be covered by $\bar y$. This results in the following LP:
+\[
+\Delta(\bar y) = \max \left\{ \sum_{j \in J} d_j z_j : z_j \le \bar I_j,\ j \in J,\ 0 \le z_j \le 1,\ j \in J \right\}. \tag{12}
+\]
+
+The latter LP is always feasible and its optimal solution can be calculated as $z_j = \min\{1, \bar I_j\}$. After associating $\pi_j,\sigma_j$ to the first, and $\sigma_j$ to the second group of constraints, respectively, the dual of this problem becomes:
+\[
+\Delta(\bar y) = \min \left\{ \sum_{j \in J} \pi_j \bar I_j + \sum_{j \in J} \sigma_j : \pi_j + \sigma_j \ge d_j,\ j \in J,\ \pi_j \ge 0,\ \sigma_j \ge 0 \right\}. \tag{13}
+\]
+
+and Benders feasibility cuts are now derived from the extreme points of the underlying polyhedron. Let $(\tilde\pi, \tilde\sigma)$ be the optimal solution of (13). If $\Delta(\bar y) < D$, the violated Benders feasibility cut can now be defined as:
+\[
+\sum_{i \in I(j)} (\tilde\pi_j + \tilde\sigma_j) y_i \ge D. \tag{14}
+\]
+
+Comparing (15) with the Benders feasibility cut (B), we observe that the extreme point $(\tilde\pi, \tilde\sigma)$ corresponds to an extreme ray of (10), in which the dual is intersected with the hyperplane $\gamma = 1$. This is one of the possible normalization techniques for Benders feasibility cuts. Given the relatively simple structure of the dual polyhedron, in the following we derive combinatorial algorithms for the separation of (15).
+
+\subsubsection{4.2.1. Combinatorial separation approach}
+
+In this section, we propose several analytical ways to derive cuts of type (15) by calculating the optimal dual multipliers $(\tilde\pi,\tilde\sigma)$ using a closed formula. Let $\bar z$ be the optimal solution of the primal Benders subproblem (12). Given that (12) is affected by degeneracy, there may be infinitely many Benders feasibility cuts associated to a given infeasible point of the relaxed master problem $\bar y$. In the following, Propositions 1, 2 and 4 provide closed formulas for calculating optimal dual solutions corresponding to extreme points of the dual polyhedron given by (13) and, hence, they allow us to derive three particular types of Benders feasibility cuts.
+
+\textbf{Proposition 1.} An optimal solution $(\tilde\pi,\tilde\sigma)$ of the subproblem (13) can be computed as:
+\[
+\tilde\pi_j = 
+\begin{cases}
+d_j, & \text{if } \bar I_j < 1, \\
+0, & \text{otherwise}
+\end{cases},
+\qquad
+\tilde\sigma_j =
+\begin{cases}
+0, & \text{if } \bar I_j < 1, \\
+d_j, & \text{otherwise}
+\end{cases}
+\qquad j \in J. \tag{16}
+\]
+
+\textit{Proof.} Given $j \in J$, one of the following two situations can occur:
+\begin{itemize}
+\item $\bar z_j = \sum_{i \in I(j)} \bar y_i < 1$: Due to the complementary slackness conditions, it follows that $\tilde\sigma_j = 0$, and hence $\tilde\pi_j = d_j$.
+\item $\bar z_j = 1 = \sum_{i \in I(j)} \bar y_i$: We set $\tilde\pi_j = 0$ and $\tilde\sigma_j = d_j$ in order to obtain a feasible dual solution.
+\end{itemize}
+
+It is not difficult to see that the constructed dual solution is feasible and that its objective function value is $\sum_{j \in J} d_j \bar z_j$. It is thus optimal.
+
+The latter result gives us an algorithm to derive Benders feasibility cuts (for both fractional and integer points). Once the values $\tilde\pi_j$ are provided, the calculation of dual multipliers and hence the separation of the associated Benders cut can be performed \emph{in linear time}, which can have a significant advantage over a generic LP-based separation technique.
+
+For an infeasible point $\bar y$, the cut reads as
+\[
+\sum_{j \in J_s(\bar y)} \left( \sum_{i \in I(j)} y_i \right) d_j \ge D - \sum_{j \in J_s(\bar y)} d_j. \tag{B0f}
+\]
+
+A more intuitive interpretation of these cuts can be given by considering an integer vector $\bar y$. Let $K \subseteq I$ be the set of open facilities whose incidence vector is given by $\bar y$, and let $J(K)$ be the set of customers covered by $K$. Benders cut (B0f) is then:
+\[
+\sum_{j \in J(K)} \left( \sum_{i \in I(j)} y_i \right) d_j \ge D - D(J(K)). \tag{B0}
+\]
+
+This cut simply states that the residual demand (which is expressed by the value on the right-hand-side) has to be satisfied by opening some of the currently closed facilities ($i \notin K$) and by considering only currently uncovered customers from their neighborhood ($j \in J(i) \setminus J(K)$).
+
+In the following, we discuss two more possibilities to construct valid Benders cuts in a combinatorial way. Looking at the structure of the dual (13), we observe that whenever $\bar I_j = 1$, $j \in J_s$, we have the freedom of assigning $d_j$ to either $\pi_j$ or $\sigma_j$. This allows us to derive two additional families of Benders cuts, which can be seen as lifted versions of (B0).
+
+\textbf{Proposition 2.} An optimal solution $(\tilde\pi,\tilde\sigma)$ of the subproblem (13) can be computed as:
+\[
+\tilde\pi_j =
+\begin{cases}
+d_j, & \text{if } \bar I_j < 1 \text{ or } j \in J_s, \\
+0, & \text{otherwise},
+\end{cases}
+\qquad
+\tilde\sigma_j =
+\begin{cases}
+0, & \text{if } \bar I_j < 1 \text{ or } j \in J_s, \\
+d_j, & \text{otherwise}.
+\end{cases} \tag{17}
+\]
+
+\textit{Proof.} We distinguish between the following situations:
+\begin{itemize}
+\item $\bar z_j = \sum_{i \in I(j)} \bar y_i < 1$: Due to complementary slackness, it follows that $\tilde\sigma_j = 0$ and hence $\tilde\pi_j = d_j$.
+\item $\bar z_j = 1$ and $|I(j)| = 1$ (and hence $\sum_{i \in I(j)} \bar y_i = 1$): In that case we can set $\tilde\pi_j = d_j$ and $\tilde\sigma_j = 0$.
+\item Otherwise (i.e., $\bar z_j = 1$, $\sum_{i \in I(j)} \bar y_i = 1$, and $|I(j)| > 1$): Due to the complementary slackness conditions, it follows that $\tilde\pi_j = 0$ and $\tilde\sigma_j = d_j$.
+\end{itemize} By plugging the dual feasible solution obtained from (17) into the Benders cut (14) and after subtracting from both sides the quantity $\sum_{j \in J_s} d_j$, we obtain:
+\[
+\sum_{j \in J_s^{0}<1} d_j \left( \sum_{i \in I(j)} y_i \right)
+    + \sum_{j \in J_s^{0}=1} d_j (y_{i(j)} - 1)
+    \ge D - \sum_{j \in J_s} d_j. \tag{B1f}
+\]
+
+Similarly, given an integer point $\bar y$ (with the associated set of open facilities $\bar K$), after plugging the dual feasible solution obtained from (17) into (15), the associated Benders cut becomes:
+\[
+\sum_{j \notin K} \left( \sum_{i \in I(j) \setminus (\bar K \cap I(j))} d_j y_i \right)
+    + \sum_{j \in J_s(\bar K)^0=1} d_j y_{i(j)}
+    \ge D - D(J(\bar K) \setminus J_s). \tag{B1}
+\]
+
+We observe that separating all possible cuts of type (B0f) or (B1f) results in the same quality of lower bound at the root node of the branch-and-Benders-cut tree, as both cuts are derived from solving the same dual Benders subproblem. However, the following proposition indicates that separating (B1f) instead of (B0f) may result in a smaller number of separating iterations, due to the fact that (B1f) may cut off a larger portion of the infeasible region compared to (B0f).
+
+\textbf{Proposition 3.} Given a solution of the relaxed master problem $\bar y$, the associated Benders cut (B1f) dominates the cut (B0f) unless $J_s = \emptyset$, in which case the two cuts are identical.
+
+\textit{Proof.} Observe that for a given $\bar y$, cut (B1f) is obtained by adding 
+\[
+\sum_{j \in J_s^{0}=1} d_j \left( \sum_{i \in I(j)} y_i - 1 \right)
+\]
+to the left-hand-side of (B0f). So, if $J_s \neq \emptyset$, the two cuts are the same. However, if $J_s \neq \emptyset$, the value of this summation can sometimes be negative, which will result in a stronger cut.
+
+Finally, using similar arguments as in Proposition 2, we propose a third family of Benders cuts that can be derived from another optimal dual solution.
+
+\textbf{Proposition 4.} An optimal solution $(\tilde\pi,\tilde\sigma)$ of the subproblem (13) can be computed as:
+\[
+\tilde\pi_j =
+\begin{cases}
+d_j, & \text{if } \bar I_j \le 1, \\
+0, & \text{otherwise},
+\end{cases}
+\qquad
+\tilde\sigma_j =
+\begin{cases}
+0, & \text{if } \bar I_j \le 1, \\
+d_j, & \text{otherwise}.
+\end{cases} \tag{18}
+\]
+
+The associated Benders cuts can be written as:
+\[
+\sum_{j \in J_s^{0}<1} d_j \left( \sum_{i \in I(j)} y_i \right)
+    + \sum_{j \in J_s^{0}=1} d_j (y_{i(j)} - 1)
+    + \sum_{j \in J_s^{0}>1} d_j \left( \sum_{i \in I(j)} y_i - 1 \right)
+    \ge D - \sum_{j \in J_s} d_j. \tag{B2f}
+\]
+
+Given an integer solution $\bar y$, and the associated set $\bar K$, the corresponding Benders cut reads as follows:
+\[
+\sum_{j \notin \bar K} \left(
+        d_j + \sum_{i \in I(j) \setminus \bar K} d_j y_i
+    \right)
+    + \sum_{j \in J_s(\bar K)^0=1} d_j y_{i(j)}
+    \ge D - D(J(\bar K) \setminus J_s(\bar K)). \tag{B2}
+\]
+
+Our next result compares the quality of Benders cuts of type (B1f) and (B2f).
+
+\textbf{Proposition 5.} Given a solution $\bar y$ of the relaxed master problem, neither of the associated Benders cuts (B2f) and (B1f) dominates the other.
+
+\textit{Proof.} Comparing the left-hand-side of cuts (B1f) and (B2f), we observe that they differ in the term
+\[
+\sum_{j \in J_s^{0}>1} d_j \left( \sum_{i \in I(j)} y_i - 1 \right),
+\]
+which is added to the left-hand-side of the cut (B2f), whereas the right-hand-sides of both cuts are identical. The value of this summation can have an arbitrary sign (depending on the current value of the $y$ variables). Hence, when this value is strictly negative the cut (B2f) will dominate the cut (B1f), and for the positive value it will be the other way around. $\square$
+
+In our computational study we assess the computational efficiency of the cuts (B1f) and (B2f), and compare them with standard LP-based separation procedures. Given that the computational effort to calculate all three cuts, (B0f)–(B2f), is the same, and the fact that (B0f) are strictly dominated by (B1f), we refrain from studying the computational relevance of (B0f). We nevertheless decide to keep cuts (B0f) and (B0), as they are the most intuitive ones and, after all, they are even sufficient to derive a valid model in the natural space of $y$ variables.
+
+\subsection{4.3. Facet-defining Benders cuts for the PSCLP}
+
+Conforti and Wolsey (2016) recently propose the following procedure to generate Benders feasibility cuts which may sometimes induce a facet or an improper face of the LP-relaxation of (8) (we refer the interested reader to Conforti \& Wolsey, 2016 for further details on this topic). This procedure is particularly useful when the Benders subproblem is degenerate, which is often the case. The procedure requires finding an optimal multiplier $\lambda$ that defines a new point on the segment between $\bar y$ and $y^0$, which is supposed to be the furthest point (with respect to $y^0$) on this line segment which is still within the LP relaxation polyhedron. The authors derive a cut-generating LP whose optimal solution almost surely induces a facet-defining Benders feasibility cut. For PSCLP, this cut-generating LP reads as follows:
+
+\[
+\min \ \lambda \tag{19}
+\]
+subject to
+\[
+z_j \le \lambda y^0_j + (1 - \lambda)\bar I_j \qquad j \in J \tag{20}
+\]
+\[
+\sum_{j \in J} d_j z_j \ge D \tag{21}
+\]
+\[
+0 \le z_j \le 1 \qquad j \in J \tag{22}
+\]
+\[
+0 \le \lambda \le 1, \tag{23}
+\]
+where $I^0_j = \sum_{i \in I(j)} y^0_i$, $j \in J$.
+
+This LP always has a feasible solution. For $\lambda = 1$ we obtain the solution $z = y^0$ associated to the core point $y^0$ (with $z_j^0 = \min\{1,I^0_j\}$). By minimizing the value of $\lambda$ we are searching for a “minimal modification’’ of the point $\bar y$ that will result in a feasible subproblem. Since with $\lambda = 1$ we can obtain a feasible solution, constraint (23) can be relaxed to $\lambda \ge 0$. To derive the associated Benders feasibility cut, we actually solve the associated dual:
+
+\[
+\max \ D\gamma - \sum_{j \in J} \sigma_j - \sum_{j \in J} \pi_j \bar I_j \tag{24}
+\]
+\[
+\pi_j + \sigma_j \ge d_j \qquad j \in J \tag{25}
+\]
+\[
+\sum_{j \in J} (y^0_j - \bar I_j)\pi_j \le 1 \tag{26}
+\]
+\[
+(\pi,\sigma,\gamma) \ge 0. \tag{27}
+\]
+
+If the optimal solution to this problem is equal to zero, then the point $\bar y$ is feasible and, hence, no Benders cut will be generated. Otherwise, the optimal solution $(\tilde\pi, \tilde\sigma)$ of this LP is plugged into (B).
+
+We observe that this approach gives us an alternative normalization technique to derive Benders feasibility cuts. Indeed, the unbounded dual Benders subproblem given by (10) is simply modified by adding the normalization hyperplane $\sum_{j \in J}(y^0_j - \bar I_j)\pi_j \le 1$ to the model.
+
+In our implementation, we initialize the core point $y^0$ by finding a feasible solution, i.e., a subset of facilities $I^c \subseteq I$ such that $D(J(I^c)) \ge D$. For all $i \in I^c$ we then set $y^0_i = 1$ and $y^0_i = 0$, for $i \notin I^c$ (note that $y^0$ is a core point due to the fact that, without loss of generality, constraints $y_i \in \{0,1\}$ can be replaced by $y_i \in \mathbb{Z}_+$, $i \in I$). Each time the relaxed branch-and-cut algorithm finds a new incumbent solution $\bar y$, we update the core point accordingly.
+
+\subsection{4.4. Strength comparison of Benders cuts}
+
+In the following, we compare the strength of all Benders cuts derived in the previous sections. We show that all the cuts are simultaneously valid and that their corresponding relaxed Benders master problems give lower bounds that are equivalent to the bounds obtained from the original compact formulation. Since the cuts are derived from solving the dual of the same polyhedron, they yield the same LP relaxation value.
+
+\textbf{Observation 1.} The LP relaxation bound of the relaxed master problem obtained by separating any of Benders cuts introduced above (i.e., (B0f)–(B2f) or facet-defining ones) is equal to the LP relaxation bound obtained by solving the compact model (1)–(5).
+
+In general, one could strengthen Benders cuts by applying a coefficient down-lifting formula. For example, the normalized Benders cuts (15) can be down-lifted thanks to the fact that the $y$ variables are binary and all coefficients are not negative, as follows:
+\[
+\sum_{i \in I} \min\left\{ \bar D,\ \sum_{j \in J(i)} \tilde\pi_j \right\} y_i \ge \bar D, \tag{28}
+\]
+where $\bar D = D - \sum_{j \in J_s} d_j$. In particular, if we are given a set $\bar K \subset I$, such that
+\[
+\sum_{j \notin J(\bar K)} \tilde\pi_j =
+\begin{cases}
+\bar D, & \text{for all } i \in \bar K, \\
+0, & \text{otherwise,}
+\end{cases}
+\]
+this constraint boils down to:
+\[
+\sum_{i \in \bar K} y_i \ge 1,
+\]
+which is a set-union knapsack cover inequality introduced by Arulselvan, Bley, and Ljubić (2018) in the context of solving the incremental connected facility location problem. The interpretation of these cuts is that opening all facilities from $I \setminus \bar K$ is *not* sufficient to cover the whole demand $D$, and hence, at least one more facility from $\bar K$ needs to be opened.
+
+In general, applying this rounding procedure to all Benders cuts introduced in this paper can theoretically lead to stronger lower bounds than those obtained from the LP relaxation of the compact formulation.
+
+\section{Benders decomposition for the MCLP}
+
+For modeling and solving the MCLP, we exploit the fact that the Benders subproblem associated to a given point $\bar y$ (representing a subset of open facilities) has a very similar structure to the Benders subproblem of the PSCLP. Hence, using the closed formulas given in Propositions 1–4, one can derive Benders cuts for the MCLP. Recall that with the single exact method available in the previous literature on the MCLP (Downs \& Camm, 1996), optimal solutions were reported for instances with up to 2241 demand points and 74 potential facility locations. With our new approach, due to the fact that the separation of Benders cuts can be performed in linear time, we are able to derive a first exact method capable of dealing with massive data sets.
+
+We start by formulating the problem in the natural space of variables. Since the variables $z$ (that will be projected out) appear in the objective function, Benders *optimality* cuts are introduced, and the value of the objective function is modeled using an auxiliary variable $\theta \ge 0$. The Benders master problem is now given as:
+\[
+\max \left\{ \theta : \sum_{i \in I} f_i y_i \le B,\ B(y) \ge 0,\ t \in P',\ y_i \in \{0,1\},\ i \in I \right\}. \tag{29}
+\]
+
+Variable $\theta$ captures the upper bound on the demand covered by the choice of $y$ variables, $P'$ is the polyhedron of the dual of the Benders subproblem and $t$ are extreme points of this polyhedron. Observe that any binary vector $y$ that satisfies the budget constraint is associated to an LP-optimal solution. Hence, no Benders feasibility cuts are needed for the MCLP. The associated Benders optimality cut is then given as:
+
+\[
+\min \left\{ \sum_{j \in J} (\tilde\pi_j + \tilde\sigma_j) : (\pi,\sigma) \in P' \right\}, \tag{30}
+\]
+
+where
+\[
+P' = \left\{ (\pi,\sigma) : \pi_j + \sigma_j \ge d_j,\ j \in J,\ (\pi,\sigma) \ge 0 \right\}.
+\]
+
+We notice that the Benders subproblem (30) is exactly the same as the Benders subproblem for the PSCLP obtained after normalization with $\gamma = 1$, represented by (13). Hence, our results for obtaining optimal dual multipliers in linear time hold for the MCLP as well. So, for example, Benders cuts derived from Proposition 1 are:
+
+\[
+\sum_{j \in J_s^{0}<1} d_j \left( \sum_{i \in I(j)} y_i \right) \ge \theta - \sum_{j \in J_s} d_j. \tag{B0f}
+\]
+
+Similarly, the cuts derived from Propositions 2 and 4 are obtained from their counterparts (B1f) and (B2f) by replacing the value of the constant $D$ on the right-hand-side, by the new variable $\theta$.
+
+\section{Computational study}
+
+In this computational section, we first introduce our benchmark set of instances and provide implementation details, before we discuss the obtained computational results. All the experiments have been performed on a computer equipped with a 3.40 gigahertz 8-core Intel Core i7–3770 processor and 16 gigabytes of RAM, running a 64-bit Linux operating system. The source codes were compiled with gcc 4.8.4 and using –O3 flag, for complete optimization. We used CPLEX 12.7.0 (called just CPLEX for brevity in what follows) and the CALLABLE LIBRARIES \begin{table}[t]
+\centering
+\caption{Random-coordinate data set parameters.}
+\begin{tabular}{ll}
+\hline
+Budget \cr Covering demand \cr Radius of coverage \\[2mm]
+$B = 10$ \cr $D = 50d_j$ \cr $R \in \{5.5; 7.5; 6.625\}$ \\ 
+$B = 15$ \cr $D = 60d_j$ \cr $R \{4.425; 4.5; 4.75; 5\}$ \\
+$B = 20$ \cr $D = 70d_j$ \cr $R \{3.25; 3.5; 3.75; 4.425\}$ \\
+\hline
+\end{tabular}
+\end{table}
+
+framework to implement our branch-and-cut algorithms. CPLEX was run in single-threaded mode and all CPLEX parameters were set to their default values, except \texttt{Preprocessing\_Linear} and \texttt{MIP\_Strategy\_CallbackReducedLP}, which were set to zero as recommended by the CPLEX user manual to use the \texttt{CPXsetusercutcallbackfunc} and \texttt{CPXsetlazyconstraintcallbackfunc} callback functions. The latter two functions allow to separate the Benders cuts described in Sections 4 and 5, for fractional and integer solutions, respectively.
+
+\subsection{6.1. Benchmarking data set and massive data set}
+
+We have created our testbed of instances following and extending the procedure proposed in ReVelle et al. (2008), where randomly generated PSCLP instances have been introduced with up to 900 points, i.e., $|I| = |J| \le 900$ (each point representing both a customer and a potential facility location). As highlighted in the introduction of this article, our exact approach is specifically designed for the realistic case in which the number of customers is much larger than the number of facilities. Hence, we significantly extend this existing testbed and create new instances with $|J|$ ranging from 2000 to 20 million, and fixing the number of potential facility locations to 50. The customer demand is generated by drawing a number from the range $[1,100]$ uniformly at random and rounding it to the nearest integer value. The $(x,y)$ coordinates of the customer and the potential facility locations are chosen uniformly at random from $[0,30]$. We set the maximum number of facilities to be opened to 10, 15 and 20, i.e., we set $|K| = \{1,\ldots,i\}$ and $B \in \{10;15;20\}$. For each potential facility location $i$, the set $I(j)$ is composed by all customers whose Euclidean distance from $i$ is at most $R$ (called the \emph{radius of coverage} of a facility). The value of $R$ considered in our study depends on the budget level as shown in Table~1. All chosen parameters exactly reflect the instance generation procedure of ReVelle et al. (2008). In order to create PSCLP instances, the covering demand $D$ is defined as a percentage of the total demand $\bar D = \sum_{j \in J} d_j$. We choose $D \in \{50\bar D; 60\bar D; 70\bar D\}$ (see Table~1). We keep the same values for $R$ as for the MCLP instances. Finally, for each combination of the instance generation input parameters, we create five instances with the same characteristics, varying only the random seed generator.
+
+We divide the testbed of instances into two groups: the first one, called \emph{benchmarking data set} (BDS), has $|J| \in \{10{,}000; 50{,}000; 100{,}000\}$. This set is composed of 210 instances and its major purpose is to serve for a comparison of the relative performance of the different Benders cuts introduced in Section~4. Moreover, BDS is also used to assess the performance of CPLEX directly applied to the compact formulations of Section~3 and to assess the performance of the default Benders decomposition implemented in CPLEX (these results are discussed in Sections~6.2 and 6.3, respectively).
+
+The second data set, called \emph{massive data set} (MDS), considers nine different values of $|J|$, starting from half a million and going up to 20 millions (see Tables 7 and 8). The major purpose of this data set, which is composed of a total of 630 instances, is to test the computational limits of our exact branch-and-Benders-cut framework (see Section~6.4).
+
+Given the variability of input parameters and different sizes of input data, we believe that our testbed of 840 instances provides a good representative sample allowing us to determine the impact of the main features of the MCLP and PSCLP instances on the structure of optimal solutions and the overall computational performance. All the instances are available upon request from the authors.
+
+Finally, it is worth mentioning that other MCLP instance sets were proposed in the literature, but none of them have the desired characteristics which are required by our exact approach, i.e., $|J| \gg |I|$ and $|I|$ relatively low. For example, in Máximo et al. (2017) the authors tested their metaheuristic approach on a set of instances with up to $\approx 8000$ customers and facilities. In this testbed, $|J| = |I|$ and $|I|$ is relatively high. Most of these instances are challenging for general-purpose MIP solvers. We also tested our branch-and-Benders-cut algorithms on the instances from Máximo et al. (2017) and they also failed in finding optimal solutions within 10 minutes of computing time. This is not surprising, as Benders decomposition typically draws advantage over a compact formulation, when the size of the relaxed master problem can be significantly reduced, compared to the size of the compact formulation. Unfortunately, and contrary to the standard facility location problems, for the MCLP and PSCLP when $|I| = |J|$ the number of decision variables is too high per facility, which does not allow the Benders approach to draw a competitive advantage. For this reason we do not report results on this set of instances.
+
+\subsection{6.2. Relative performance of the different families of Benders cuts}
+
+In Table~2, we report average computing times necessary to obtain optimal solutions for the PSCLP instances with $|J| = 100{,}000$. The instances are grouped by the three different values of increasing covering demands $D$ and the column \# reports the total number of instances per row. All four settings manage to solve all 70 instances of this set to proven optimality. However, there is an obvious difference between the computational times of the four settings that rely on the separation based on solving an LP (namely, BEN RAYS and BEN FACETS) and those based on a combinatorial approach which runs in linear time (namely, BEN B1 and BEN B2).
+
+From these tests we can notice that increasing the values of $D$ makes the instances slightly harder to solve. There is no surprise in the fact that the use of a combinatorial algorithm compares favorably to the use of the LP-based algorithm to derive Benders cuts. What is surprising is the order of magnitude of this speed-up which is already impressive for $|J| = 100{,}000$ and tends to increase more and more for bigger values of $|J|$. As far as the BEN \begin{table}[t]
+\centering
+\caption{Computing times to solve PSCLP instances with $|J| = 10{,}000$ comparing the performances of four families of Benders cuts.}
+\begin{tabular}{cccccc}
+\hline
+$|J|$ & $D$ & BEN B1 & BEN B2 & BEN RAYS & BEN FACETS \\
+ &  & $t$ [seconds] & $t$ [seconds] & $t$ [seconds] & $t$ [seconds] \\
+\hline
+10,000 & $50\bar D$ & 0.02 & 0.02 & 7.81 & 25.46 \\
+       & $60\bar D$ & 0.06 & 0.004 & 24.60 & 35.89 \\
+       & $70\bar D$ & 0.17 & 0.14 & 16.33 & 48.22 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{LP relaxation bounds for PSCLP instances with $|J| = 50{,}000$.}
+\begin{tabular}{ccccccc}
+\hline
+$|J|$ & $D$ & \# & LP gap [\%] & CPLEX [seconds] & BEN B1 [seconds] & BEN B2 [seconds] \\
+\hline
+50,000 & $50\bar D$ & 20 & 3.93 & 30.06 & 0.04 & 19.9 \\
+       & $60\bar D$ & 25 & 2.78 & 13.82 & 0.06 & 42.3 \\
+       & $70\bar D$ & 25 & 1.47 & 14.33 & 0.11 & 79.1 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{LP relaxation bounds for MCLP instances with $|J| = 50{,}000$.}
+\begin{tabular}{ccccccc}
+\hline
+$|J|$ & $B$ & \# & LP gap [\%] & CPLEX [seconds] & BEN B1 [seconds] & BEN B2 [seconds] \\
+\hline
+50,000 & 10 & 20 & 0.56 & 125.18 & 9.05 & 1044.5 \\
+       & 15 & 25 & 0.40 & 191.78 & 13.08 & 1158.7 \\
+       & 20 & 25 & 0.33 & 101.15 & 17.03 & 1260.6 \\
+\hline
+\end{tabular}
+\end{table}
+
+FACETS cuts are concerned, we notice that on average fewer cuts are generated with respect to the BEN RAYS cuts; however, the LP (24)–(27) is much harder to solve than dual LP of the Benders subproblem given by (9) (using its normalization from the primal programming solver). Thus, comparing the LP-based Benders cuts for the MCLP, we observe (see Tables 4 and 6 for detailed results reported later) that solving the MCLP is typically harder.
+
+In the following, we analyze the quality of LP relaxation bound of the formulations presented in Section 3 for both PSCLP and MCLP, and the CPU time needed to obtain it. We focus on the two most performing settings from above, i.e., BEN B1 and BEN B2. For these tests, we consider larger BDS instances with $|J| = 50{,}000$. The results obtained for the PSCLP and MCLP are shown in Tables 3 and 4, respectively; where each line reports the average values obtained for instances with the same features (same $D$ or $B$ values, respectively). The tables report the average LP gap computed for the PSCLP as $(z^{LP} - z^{ILP}) / z^{ILP}$ and for the MCLP as $(z^{ILP} - z^{LP})/ z^{LP}$; where $z^{ILP}$ is the optimal solution value of an instance and $z^{LP}$ is the value of its LP relaxation bound. The tables report then the computational time required by the LP solver of CPLEX to solve the LP relaxation of the ILP formulations. Finally, we report the computing time to obtain the same LP bound by separating the Benders Cuts BEN B1 and BEN B2. For the latter two configurations we also report the average number of generated Benders cuts. For these tests we separated all fractional Benders cuts without considering any violation tolerance, thus obtaining exactly the same bound for all the three methods.
+
+We first observe that the LP formulations for both problems provide relatively small LP gaps, confirming the results obtained in several other papers as discussed in the introduction of this article. The LP gaps of the PSCLP are on average below 4\% and for the MCLP below 1\%. The relative difference in the LP gaps between the two families of problems can be explained by the fact that optimal MCLP solutions are much bigger than optimal PSCLP ones for the considered test bed of instances (see Section 6.1 for further details on how the instances have been constructed). For the PSCLP, we observe that increasing the covering demand $D$ results in smaller LP gaps. Similarly, increasing the budget $B$ for the MCLP reduces the LP gaps. As far as the CPU time necessary to compute the LP relaxation bound is concerned, Tables 3 and 4 clearly show that separating the BEN B1 and BEN B2 families of cuts is by far much faster than calling the LP solver of CPLEX. In particular, using the BEN B1 cut generation, we can take up to an average of 30 seconds less than the LP solver. For instance, for the best case in Table 3 it takes on average more than 10 seconds. Solving the root node of our branch-and-Benders-cut algorithm required instead a fraction of a second. For all these tested PSCLP instances it requires on average less than approximately 0.1 second. A similar comparison emerges also from Table 4 for the MCLP instances, where our branch-and-Benders-cut outperforms CPLEX on average by more than one order of magnitude in computing the LP relaxations. Table 4 also shows that, even if the PSCLP and the MCLP instances have been generated with similar parameters, the MCLP instances are computationally much harder. This fact can be explained by the number of cuts generated, i.e., for the MCLP instances many more cuts are necessary to compute the LP bounds with respect to the PSCLP instances.
+
+\subsection{6.3. Comparison with the state-of-the-art MIP solver and CPLEX Automatic Benders Procedure}
+
+To the best of our knowledge, no previous computational study on exact approaches appeared in the literature for the PSCLP and for the MCLP, despite their theoretical and practical relevance. For this reason, in this section we compare the performance of our branch-and-Benders-cut framework based on the BEN B1 and BEN B2 families of Benders cuts against the direct use of CPLEX applied as a black-box MIP solver to the compact formulations of Section 3. CPLEX is one of the state-of-the-art MIP solvers and is usually used as benchmark to compare the performance of newly developed exact algorithms; in addition, CPLEX recently made available an \emph{Automatic Benders Procedure} which is another good candidate for comparing the performance of our new algorithms. The main difference between our branch-and-Benders-cut and the Automatic Benders Procedure of CPLEX lies in the way the Benders cuts are determined and separated (see Sections 4 and 5 for the definition of our Benders cuts BEN B1 and BEN B2). \begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{Fig2_placeholder.png}
+\caption{Performance profile for the PSCLP instances with $|I| \in \{10{,}000; 50{,}000; 100{,}000\}$.}
+\end{figure}
+
+CPLEX nor by AUTO BEN. In particular, these results show that AUTO BEN behaves poorly for the PSCLP, a fact which is evident by remarking that none of the instances with $|I| = 100{,}000$ can be solved by this method. CPLEX is able to solve all the instances up to dimension $|I| = 50{,}000$, but it slips into several “time limits’’ for larger instances. Comparing the relative performance of BEN B1 and BEN B2, we can notice that both approaches are very effective, but BEN B2 is slightly superior. As expected, increasing the demand $D$ generally makes the instances harder to solve. It is worth mentioning that BEN B2 is able to solve the larger and harder instances in less than half a second on average.
+
+As far as the MCLP results are concerned, Fig.~6 demonstrates a similar behavior, i.e., our branch-and-Benders-cut algorithm also performs slightly better for the MCLP instances. For this problem, the relative comparison between CPLEX and AUTO BEN is reversed, i.e., AUTO BEN outperforms CPLEX and it is able to solve more instances to proven optimality. Nevertheless, our BEN B1 and BEN B2 approaches outperform AUTO BEN, in several cases by one order of magnitude. They are able to solve all the 210 instances of this MCLP testbed. Again as expected, increasing the number of customers makes the instances harder for all approaches, while increasing the budget makes the instances harder for AUTO BEN, BEN B1 and BEN B2, while slightly easier for CPLEX. Comparing the relative performance of BEN B1 and BEN B2, we can notice that for the MCLP, BEN B1 is slightly superior. Finally, these tests show that the MCLP instances are harder than the PSCLP instances and the CPU times for BEN B1 can reach about half a minute.
+
+More details on the computational tests are given in the appendix of this article, where tables similar to Tables 5 and 6 are reported. In the appendix tables we present also the results for a variation of the different values of the Radius of Coverage $R$. We did not notice a clear impact on the performance of the algorithm by increasing values of $R$. For this reason, we do not report further details in this paper (we refer the interested reader to the Appendix).
+
+A graphical representation of the relative performance of the different exact algorithms is given by the performance profiles of Figs.~2 and 3. For the PSCLP and for the MCLP, respectively. For each instance, we compute a normalized time $\tau$ as the ratio of the computing time to solve to optimality the considered configuration to the minimum computing time across all configurations. For each value of $\tau$ in the horizontal axis, the vertical axis reports the percentage of the instances for which the corresponding configuration spent at most $\tau$ times the computing time of the fastest algorithm. The curves start from the percentage of instances in which the corresponding algorithm is the fastest and at the right end of the chart, we can read the percentage of instances solved by a specific algorithm. The best performance are graphically represented by the curves which reach 100\% the earliest and highest. The horizontal axis is represented in logarithmic scale. The figures clearly show that our branch-and-Benders-cut algorithms BEN B1 and BEN B2 largely outperform CPLEX and AUTO BEN for both the PSCLP and the MCLP. For both problems, BEN B1 and BEN B2 resolve 100\% of solved instances. For the PSCLP, CPLEX is able to solve about 59\% and AUTO BEN only about 29\% of the instances (by allowing 1000 times more time than that taken by BEN B1 and BEN B2).
+
+Fig.~2 shows that BEN B2 is the fastest method in about 75\% of the instances while BEN B1 is the fastest in only about 25\% of the instances considered. For the MCLP, CPLEX is able to solve about 80\% and AUTO BEN about 96\% of the instances (by allowing 100 times more time than that taken by BEN B1 or BEN B2).
+
+Fig.~3 shows that BEN B1 is the fastest method in about 46\% of the instances while BEN B2 is the fastest in about 31\%. CPLEX and AUTO BEN are not completely dominated by BEN B1 and BEN B2 since AUTO BEN is the fastest method in 18\% of the instances and CPLEX in about 5\%.
+
+In Fig.~4, we report two optimal MCLP solutions for two instances with $|I| = 10{,}000$, $B = 10$ and $R = \{5.5; 6.25\}$. In these figures the white circles represent the open facilities and the grey circles the served customers. Dark grey circles represent customers covered by more than one facility. For both small solutions, with different covering radius $R = 5.5$ and $R = 6.25$, 10 facilities (fully exploiting the budget $B$) but not the same ones. As expected, with $R = 6.25$, the percentage of covered customers increases, as well as the percentage of customers covered by two or more facilities. This figure gives a graphical intuition of the size of the instances which can be tackled by our branch-and-Benders-cut algorithms and it also demonstrates how our algorithm can be used as a decision support tool. For the sake of readability, we illustrate two instances with 1000 customers, but in what follows we will demonstrate that decision makers can easily use our approach for dealing with problems involving millions of customers. \begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{Fig3_placeholder}
+\caption{Performance profile for the MCLP instances with $|I| \in \{10{,}000; 50{,}000; 100{,}000\}$.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{Fig4_placeholder}
+\caption{Two optimal MCLP solutions with $|I| = 10{,}000$, $B = 10$ and $R \in \{5.5; 6.25\}$.}
+\end{figure}
+
+\subsection{6.4. Computational results on the instances from the massive data set}
+
+In this section we test the computational limits of our branch-and-Benders-cut algorithms, using the MDS instances presented in Section~6.1. These PSCLP and MCLP instances have up to 20 million customers. In these tests, in order to avoid the generation of too many Benders cuts for fractional points, we stop the separation as soon as the relative cut violation goes below 1\%. This relative violation is computed as the relative ratio between the difference of the covering demand $D$ and the current value of the left hand side of the Benders cut, with respect to the value of $D$. Thanks to extensive preliminary tests, we determined that 1\% is a good compromise between the quality of the relaxation and the number of generated Benders cuts for fractional solutions.
+
+In Tables~7 and 8, we report the results for the PSCLP and for the MCLP, respectively. As discussed in Section~6.3, we test only the best branch-and-Benders-cut algorithm for each problem, i.e., BEN B2 for the PSCLP and BEN B1 for the MCLP. These two tables report the average results of 70 instances per row, grouped by increasing number of customers $|J|$ (starting from half a million and going up to 20 millions). For the PSCLP, we also test instances up to 40 millions customers, i.e., 280 additional instances. The tables report the following information: the number of instances solved to proven optimality (column \# Opt), the average computing time (considering only solved instances), the average number of Benders cuts derived from integer and fractional points (columns \# B2 int., \# B2 fract., \# B1 int., \# B1 fract.) and finally the number of branching nodes explored (column \# nodes).
+
+As far as the PSCLP results are concerned, Table~7 shows that BEN B2 is able to solve all the 630 instances of the MDS, up to 20 million customers. The average CPU time goes from several seconds up to more than 100 seconds for the larger instances. The number of Benders cuts derived from integer points is relatively low, while dozens of Benders cuts are generated from fractional points. The number of explored nodes is relatively low and this figure never goes above 100 nodes, a fact which reflects the good quality of the LP relaxation bounds. Starting from 25 millions customers, our algorithm starts failing to solve some of the instances of the test bed. In particular, one instance cannot be solved within the time limit for 25 million customers and six instances for 30 and 40 millions, respectively. As far as the MCLP results are concerned, Table~8 shows that BEN B2 is able to solve to proven optimality all the instances with up to 1,500,000 customers. The time limit imposed in this set of experiments is again 600 seconds. By increasing the number of customers, the number of instances that can be solved to optimality decreases, so that none of the instances with 20 millions customers can be solved within 10 minutes. The average CPU time ranges between 50 seconds for half a million of customers to approximately 1600 seconds for 1.5 million customers. For the larger instances, the required CPU time for instances with 15 millions customers is about 400 seconds. The number of Benders cuts derived from integer points is relatively low (but larger compared to the PSCLP instances), while several hundreds (up to about 1500) of Benders cuts are generated at fractional points. The number of explored nodes is still relatively low and this figure never goes beyond 200 nodes, which can be also explained by the high quality of the LP relaxation bounds.
+
+The source code of our branch-and-Benders-cut algorithm as well as the benchmark instances of location instances can be downloaded at \url{https://github.com/fabiofurini/LocationCovering}. The software was given the DOI (Digital Object Identifier) \url{https://doi.org/10.5281/zenodo.1412080}.
+
+\section{7. Conclusions}
+
+In this study we state the partial set covering location problem and the maximal covering location problem, two location problems which require choosing a subset of facilities (i) minimizing the cost of the open facilities while covering a predetermined fraction of customer demand and (ii) maximizing the covered demand respectively. These two important problems have not received much attention in the literature despite their theoretical and practical relevance. In this article, we propose the first exact algorithm to effectively tackle realistic PSCLP and MCLP instances with millions of demand points – instances that are far beyond the reach of modern general-purpose MIP solvers. We managed to achieve these results thanks to effective branch-and-Benders-cut algorithms that exploit a combinatorial cut-separation procedure.
+
+Future lines of research will go in the direction of developing exact algorithms for situations in which a concave utility function is used to express the value of the covered demand and a connection to the submodular cuts will be explored.
+
+The PSCLP and MCLP are relevant problems in the field of data science, in the context of clustering and classification. Hence, as a future line of research it would be interesting to study data-driven optimization using PSCLP and MCLP. To this end, various types of data uncertainty need to be embedded into the PSCLP and MCLP models, and decomposition algorithms need to be adapted to deal with massive data sets.
+
+\section*{Acknowledgments}
+
+The authors would like to thank three anonymous referees whose comments have helped to improve the quality of the paper. Ivana Ljubić acknowledges partial support by the Vienna Science and Technology Fund (WWTF) through project ICT15-014.
+
+\section*{Appendix A.}
+
+\subsection*{A1. Detailed computational results}
+\begin{table}[t]
+\centering
+\caption{Table 9 (continued)}
+\begin{tabular}{cccccccccccc}
+\hline
+$|I|$ & $D$ & $R$ & \# & CPLEX $t$ & CPLEX \# & AUTO $t$ & AUTO \# & BEN B1 $t$ & BEN B1 \# & BEN B2 $t$ & BEN B2 \# \\
+\hline
+      & $60\bar D$ & 6.25 & 5 & 282.79 & 2 & t.l. & 0 & 0.20 & 5 & 0.18 & 5 \\
+      &            & 4.25 & 5 & 343.53 & 4 & t.l. & 0 & 0.27 & 5 & 0.40 & 5 \\
+      &            & 4.25 & 5 & 295.50 & 4 & t.l. & 0 & 0.26 & 5 & 0.15 & 5 \\
+      &            & 4.50 & 5 & 295.23 & 5 & t.l. & 0 & 0.32 & 5 & 0.15 & 5 \\
+      &            & 4.75 & 5 & 418.37 & 2 & t.l. & 0 & 0.43 & 5 & 0.49 & 5 \\
+      &            & 5.00 & 5 & 468.30 & 2 & t.l. & 0 & 0.52 & 5 & 0.45 & 5 \\
+      & $70\bar D$ & 3.25 & 5 & 273.77 & 5 & t.l. & 0 & 0.55 & 5 & 0.41 & 5 \\
+      &            & 3.50 & 5 & 345.65 & 4 & t.l. & 0 & 0.62 & 5 & 0.71 & 5 \\
+      &            & 3.75 & 5 & 292.74 & 4 & t.l. & 0 & 0.65 & 5 & 0.44 & 5 \\
+      &            & 4.00 & 5 & 357.60 & 4 & t.l. & 0 & 0.46 & 5 & 0.39 & 5 \\
+      &            & 4.25 & 5 & 157.04 & 1 & t.l. & 0 & 0.68 & 5 & 0.55 & 5 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\begin{table}[t]
+\centering
+\caption{Performance comparison on the MCLP instances with $|I|\in\{10{,}000, 50{,}000, 100{,}000\}$.}
+\begin{tabular}{cccccccccccc}
+\hline
+$|I|$ & $B$ & $R$ & \# & CPLEX $t$ & CPLEX \# & AUTO $t$ & AUTO \# & BEN B1 $t$ & BEN B1 \# & BEN B2 $t$ & BEN B2 \# \\
+\hline
+10{,}000 & 10 & 5.5 & 5 & 12.54 & 5 & 12.51 & 5 & 0.59 & 5 & 9.18 & 5 \\
+         &    & 5.75 & 5 & 11.30 & 5 & 13.35 & 5 & 0.56 & 5 & 9.48 & 5 \\
+         &    & 6.00 & 5 & 10.90 & 5 & 16.57 & 5 & 6.79 & 5 & 13.20 & 5 \\
+         &    & 6.25 & 5 & 8.59  & 5 & 23.38 & 5 & 6.75 & 5 & 12.18 & 5 \\
+         & 15 & 3.00 & 5 & 4.72  & 5 & 11.83 & 5 & 6.05 & 5 & 6.08 & 5 \\
+         &    & 4.25 & 5 & 5.47  & 5 & 13.28 & 5 & 6.42 & 5 & 6.18 & 5 \\
+         &    & 4.50 & 5 & 3.71  & 5 & 13.88 & 5 & 5.97 & 5 & 6.16 & 5 \\
+         &    & 5.00 & 5 & 8.30  & 5 & 50.67 & 5 & 39.09 & 5 & 49.22 & 5 \\
+         & 20 & 3.25 & 5 & 9.46  & 5 & 34.74 & 5 & 6.55 & 5 & 4.32 & 5 \\
+         &    & 4.00 & 5 & 15.08 & 5 & 39.30 & 5 & 12.31 & 5 & 19.30 & 5 \\
+         &    & 3.75 & 5 & 6.28  & 5 & 45.48 & 5 & 32.57 & 5 & 73.85 & 5 \\
+         &    & 3.50 & 5 & 4.83  & 5 & 19.03 & 5 & 41.47 & 5 & 40.86 & 5 \\
+         &    & 4.50 & 5 & 7.31  & 5 & 48.98 & 5 & 62.26 & 5 & 45.68 & 5 \\
+50{,}000 & 10 & 5.5 & 5 & 237.53 & 5 & 49.83 & 5 & 61.22 & 5 & 75.28 & 5 \\
+       &    & 5.75 & 5 & 170.67 & 5 & 41.75 & 5 & 20.47 & 5 & 45.78 & 5 \\
+       &    & 6.00 & 5 & 9.72   & 5 & 48.45 & 5 & 6.77 & 5 & 3.90 & 5 \\
+       &    & 6.25 & 5 & 126.66 & 5 & 54.92 & 5 & 10.95 & 5 & 12.68 & 5 \\
+       & 15 & 4.25 & 5 & 13.59 & 5 & 29.46 & 5 & 5.10 & 5 & 4.05 & 5 \\
+       &    & 4.50 & 5 & 16.93 & 5 & 48.96 & 5 & 6.50 & 5 & 10.77 & 5 \\
+       &    & 5.00 & 5 & 156.32 & 5 & 97.00 & 5 & 17.01 & 5 & 12.75 & 5 \\
+       &    & 5.75 & 5 & 102.85 & 5 & 25.81 & 5 & 23.89 & 5 & 17.98 & 5 \\
+       &    & 3.00 & 5 & 172.50 & 5 & 25.81 & 5 & 23.07 & 5 & 3.63 & 5 \\
+       & 20 & 3.25 & 5 & 150.66 & 5 & 35.11 & 5 & 13.36 & 5 & 12.06 & 5 \\
+       &    & 3.50 & 5 & 137.37 & 5 & 134.47 & 5 & 13.83 & 5 & 29.36 & 5 \\
+       &    & 3.75 & 5 & 130.89 & 5 & 162.52 & 5 & 54.48 & 5 & 42.21 & 5 \\
+       &    & 4.00 & 5 & 129.20 & 5 & 25.05 & 5 & 4.66 & 5 & 49.59 & 5 \\
+       &    & 4.25 & 5 & 88.27  & 5 & 51.16 & 5 & 26.09 & 5 & 40.31 & 5 \\
+100{,}000 & 10 & 5.5 & 5 & 61.11 & 1 & 82.72 & 5 & 8.22 & 5 & 9.73 & 5 \\
+       &    & 5.75 & 5 & 95.79 & 3 & 119.32 & 5 & 5.13 & 5 & 10.64 & 5 \\
+       &    & 6.00 & 5 & 435.94 & 1 & t.l.   & 0 & 112.51 & 5 & 19.93 & 5 \\
+       &    & 6.25 & 5 & 424.47 & 3 & 89.41 & 5 & 10.76 & 5 & 20.75 & 5 \\
+       & 15 & 3.00 & 5 & 317.33 & 5 & 606.58 & 5 & 11.35 & 5 & 12.30 & 5 \\
+       &    & 3.50 & 5 & 446.15 & 5 & t.l. & 0 & 11.72 & 5 & 13.15 & 5 \\
+       &    & 4.25 & 5 & 508.79 & 3 & 153.51 & 5 & 28.75 & 5 & 40.37 & 5 \\
+       &    & 5.00 & 5 & 574.45 & 4 & 168.45 & 5 & 23.55 & 5 & 23.14 & 5 \\
+       &    & 4.50 & 5 & 443.25 & 1 & 193.85 & 5 & 26.00 & 5 & 42.96 & 5 \\
+       & 20 & 3.25 & 5 & 400.79 & 4 & 492.90 & 5 & 13.30 & 5 & 19.88 & 5 \\
+       &    & 3.50 & 5 & 369.68 & 2 & 76.20  & 4 & 29.56 & 5 & 10.05 & 5 \\
+       &    & 3.75 & 5 & 203.81 & 1 & 305.23 & 4 & 49.36 & 5 & 53.20 & 5 \\
+       &    & 4.00 & 5 & 407.50 & 3 & 205.86 & 4 & 58.68 & 5 & 65.69 & 5 \\
+       &    & 4.25 & 5 & 287.02 & 3 & 171.00 & 4 & 4.28 & 5 & 75.87 & 5 \\
+\hline
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+
+
+\end{document}
