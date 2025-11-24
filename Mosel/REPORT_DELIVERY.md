@@ -8,8 +8,8 @@ This package contains a comprehensive technical report on the Maximum Covering L
 
 ### 1. Main Report
 
-- **`client_report.tex`**: Complete LaTeX source for the professional client report
-- **`client_report.pdf`**: Compiled PDF (you must compile the .tex file - see instructions below)
+- **`REPORT.tex`**: Complete LaTeX source for the professional client report
+- **`REPORT.pdf`**: Compiled PDF (you must compile the .tex file - see instructions below)
 
 ### 2. Source Code (src/ directory)
 
@@ -72,13 +72,13 @@ The report is written in LaTeX for professional presentation. To compile to PDF:
 
 ```bash
 cd Mosel
-pdflatex client_report.tex
-pdflatex client_report.tex  # Run twice for references
+pdflatex REPORT.tex
+pdflatex REPORT.tex  # Run twice for references
 ```
 
 ### Option 2: Using Online LaTeX Editor
 
-1. Upload `client_report.tex` to [Overleaf](https://www.overleaf.com)
+1. Upload `REPORT.tex` to [Overleaf](https://www.overleaf.com)
 2. Upload all figures from `figures/` directory
 3. Compile (PDF will be generated automatically)
 
@@ -86,7 +86,7 @@ pdflatex client_report.tex  # Run twice for references
 
 1. Install MiKTeX from https://miktex.org/download
 2. Open MiKTeX Console, install missing packages if prompted
-3. Run: `pdflatex client_report.tex` twice
+3. Run: `pdflatex REPORT.tex` twice
 
 ## Report Structure
 
