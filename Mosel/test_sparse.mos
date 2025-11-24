@@ -1,0 +1,20 @@
+model "Test_Sparse"
+  uses "mmsystem"
+  
+  declarations
+    nI = 4
+    nJ = 8
+  end-declarations
+  
+  declarations
+    COST: array(range) of real
+  end-declarations
+  
+  initializations from "data/test_tiny.dat"
+    COST
+  end-initializations
+  
+  writeln("COST loaded successfully!")
+  writeln("Size: ", getsize(COST))
+  
+end-model

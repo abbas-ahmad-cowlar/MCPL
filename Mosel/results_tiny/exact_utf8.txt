@@ -1,0 +1,50 @@
+﻿
+======================================================================
+MCLP EXACT MODEL - Compact Formulation
+======================================================================
+Instance: data/test_tiny.dat
+Facilities: 4, Customers: 8
+Budget: 5
+======================================================================
+
+Instance Statistics:
+  Total facility cost:       9.00
+  Total demand:     152.00
+  Budget ratio:  55.56%
+  Coverage density:  46.88%
+  Coverage arcs: 15
+? Data validation passed
+
+Variable relaxation: z[j] ? [0,1] (continuous)
+Model Statistics:
+  Variables: 4 (y) + 8 (z) = 12
+  Binary variables: 4 (y)
+  Continuous variables: 8 (z)
+  Coverage constraints: 8
+  Budget constraint: 1
+  Total constraints: 9
+
+Starting optimization...
+  Time limit: 3600 seconds
+  MIP gap: 1%
+======================================================================
+======================================================================
+
+OBJECTIVE:
+  Covered demand:       142.00
+  Best bound:       142.00
+
+SOLUTION:
+  Open facilities: 2 / 4
+  Covered customers: 7 / 8 ( 87.5%)
+  Budget used:       4.00 /       5.00 ( 80.0%)
+  Total demand covered:     142.00 /     152.00 ( 93.4%)
+
+COMPUTATIONAL:
+  Solve time:     0.08 seconds
+  Nodes explored: 1
+
+OPEN FACILITIES:
+  2 3
+
+======================================================================

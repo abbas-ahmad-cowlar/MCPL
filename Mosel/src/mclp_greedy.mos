@@ -124,7 +124,6 @@ model "MCLP_Greedy"
     
     ! Temporary variables
     new_covered_count: integer
-    new_covered: integer
   end-declarations
 
   ! Compute instance statistics

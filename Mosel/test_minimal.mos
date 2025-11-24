@@ -1,0 +1,22 @@
+model "Minimal_Test"
+  uses "mmsystem"
+  
+  declarations
+    nI = 4
+    nJ = 8
+  end-declarations
+  
+  declarations
+    COST: array(0..3) of real
+  end-declarations
+  
+  initializations from "data/test_tiny.dat"
+    COST
+  end-initializations
+  
+  writeln("COST loaded:")
+  forall(i in 0..3) do
+    writeln("  COST[", i, "] = ", COST(i))
+  end-do
+  
+end-model
