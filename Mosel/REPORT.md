@@ -33,27 +33,27 @@ We generated and tested on a diverse set of instances:
 
 | Dataset  | Best Algorithm   | Objective      | Runtime | Notes                                       |
 | :------- | :--------------- | :------------- | :------ | :------------------------------------------ |
-| **S1**   | Exact / Tabu     | 7,646.00       | < 0.2s  | All algorithms found optimal.               |
-| **M2**   | **Tabu Search**  | **22,497.00**  | 0.48s   | Beat Exact solver (stopped early).          |
-| **L1**   | **Local Search** | **47,783.00**  | 0.02s   | Beat Exact solver (stopped early).          |
-| **XL1**  | **Tabu Search**  | **96,702.00**  | 1.18s   | Best known solution.                        |
-| **XXL1** | **Local Search** | **250,788.00** | 0.25s   | **Optimal**. Exact solver failed (license). |
+| **S1**   | Exact / Tabu     | 7,646.00       | < 0.2s  | All algorithms found optimal solution.      |
+| **M2**   | **Tabu Search**  | **22,497.00**  | 0.21s   | Outperformed Exact solver (0.8% MIP gap).   |
+| **L1**   | **Local Search** | **47,783.00**  | 0.01s   | Outperformed Exact solver (0.9% MIP gap).   |
+| **XL1**  | **Tabu Search**  | **96,479.00**  | 0.59s   | Best known solution (387 units > Exact).    |
+| **XXL1** | **Local Search** | **250,788.00** | 0.10s   | **Best known**. Exact solver failed (license limit). |
 
 ## 5. Analysis & Recommendations
 
 ### Scalability
 
-- **Exact Solver**: Excellent for small/medium problems. For large problems (L1+), it hits time or license limits.
-- **Local Search**: The most efficient algorithm. It solved the massive XXL1 instance to optimality in **0.25 seconds**.
-- **Tabu Search**: Very robust. Found the best solution for XL1 and M2. However, it requires careful tuning for extremely large instances (XXL1).
+- **Exact Solver**: Excellent for small instances (S1, S2), achieving optimality within 0.01-0.04 seconds. For medium instances, the solver often terminates with small MIP gaps (0.5-1.0%). For very large instances (XXL1), the community license limitation prevents execution (>5000 rows).
+- **Local Search**: The most efficient algorithm for large-scale problems. It solved the massive XXL1 instance (5000 customers) to the best known solution in **0.10 seconds**, demonstrating exceptional scalability.
+- **Tabu Search**: Highly robust across medium-to-large instances. Found the best solutions for XL1 and M2, demonstrating superior solution quality compared to the Exact solver. However, implementation limitations prevent execution on XXL1 (index out of range error).
 
 ### Recommendation
 
 For deployment, we recommend a **hybrid approach**:
 
-1.  Run **Local Search** first (instantaneous, high quality).
-2.  Run **Tabu Search** (1-5 seconds) to try and improve the solution further.
-3.  Use **Exact Solver** only for small offline validation or when optimality proof is strictly required (and license permits).
+1.  Run **Local Search** first (0.01-0.10 seconds, consistently high quality across all instance sizes).
+2.  Run **Tabu Search** (0.2-0.6 seconds for instances up to XL) to potentially improve the solution further, particularly for medium-to-large instances.
+3.  Use **Exact Solver** only for small instances (< 200 facilities) when optimality guarantees are required, or when the license permits and MIP gap tolerance is acceptable.
 
 ## 6. Deliverables
 
