@@ -34,9 +34,9 @@ MCLP_Optimization_Suite/
 │   ├── local_search_pseudocode.txt
 │   └── tabu_search_pseudocode.txt
 ├── results/                    # Benchmark Output Logs
-├── REPORT.md                   # Executive Summary & Client Report
-├── BENCHMARK_RESULTS.md        # Detailed Performance Tables
-├── TECHNICAL_GUIDE.md          # Developer & Setup Guide
+├── REPORT.md                   # Executive Summary
+├── client_report.tex           # 📄 FINAL REPORT (LaTeX Source)
+├── REPORT_DELIVERY.md          # 📖 Delivery Guide
 ├── run_benchmark.ps1           # Main Execution Script
 └── summarize_results.ps1       # Result Analysis Script
 ```
@@ -84,9 +84,9 @@ To generate a summary table of the benchmark performance:
 
 ## 📚 Documentation
 
-- **[Client Report](REPORT.md)**: High-level analysis, key findings, and recommendations.
-- **[Benchmark Results](BENCHMARK_RESULTS.md)**: Comprehensive performance data.
-- **[Technical Guide](TECHNICAL_GUIDE.md)**: Detailed setup, compilation, and troubleshooting instructions.
+- **[Executive Summary](REPORT.md)**: High-level analysis and key findings.
+- **[Final Report](client_report.tex)**: Comprehensive academic-style report (LaTeX).
+- **[Delivery Guide](REPORT_DELIVERY.md)**: Instructions for compiling and using this package.
 - **[Pseudocode](pseudocode/)**: Detailed logic for each heuristic.
 
 ---
