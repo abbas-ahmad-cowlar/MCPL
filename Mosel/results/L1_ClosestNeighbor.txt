@@ -1,0 +1,77 @@
+mclp_closest_neighbor.mos': Symbol `covered' is never 
+used.
+At 
+C:\Users\COWLAR\projects\MCPL\Mosel\run_benchmark.ps1:43 
+char:9
++         & $cmd $moselArgs > $outputFile 2>&1
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Mosel: W-226  
+   at... is never used.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Mosel: W-226 at line 60 of 
+`src\mclp_closest_neighbor.mos': Symbol `best_fac' is 
+never used.
+Mosel: W-226 at line 62 of 
+`src\mclp_closest_neighbor.mos': Symbol `cust_array' is 
+never used.
+Mosel: W-226 at line 63 of 
+`src\mclp_closest_neighbor.mos': Symbol `demand_array' is 
+never used.
+Mosel: W-226 at line 64 of 
+`src\mclp_closest_neighbor.mos': Symbol `temp_d' is never 
+used.
+Mosel: W-226 at line 65 of 
+`src\mclp_closest_neighbor.mos': Symbol `temp_c' is never 
+used.
+Mosel: W-226 at line 128 of 
+`src\mclp_closest_neighbor.mos': Symbol 
+`uncovered_customers' is never used.
+Mosel: W-226 at line 130 of 
+`src\mclp_closest_neighbor.mos': Symbol `best_score' is 
+never used.
+Mosel: W-226 at line 131 of 
+`src\mclp_closest_neighbor.mos': Symbol `priority_score' 
+is never used.
+Mosel: W-226 at line 132 of 
+`src\mclp_closest_neighbor.mos': Symbol 
+`potential_coverage' is never used.
+Mosel: W-226 at line 133 of 
+`src\mclp_closest_neighbor.mos': Symbol `new_coverage' is 
+never used.
+Mosel: W-226 at line 134 of 
+`src\mclp_closest_neighbor.mos': Symbol `coverage_gain' is 
+never used.
+
+======================================================================
+MCLP CLOSEST NEIGHBOR HEURISTIC
+======================================================================
+Instance: data/L1.dat
+Facilities: 200, Customers: 1000
+Budget: 20
+======================================================================
+
+Instance Statistics:
+  Total facility cost:    1068.29
+  Total demand:   49667.00
+  Budget ratio:   1.87%
+  Coverage density:   8.72%
+
+Starting Closest Neighbor Construction...
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+
+CLOSEST NEIGHBOR SOLUTION:
+  Customers processed: 1000
+  Facilities opened: 15
+  Open facilities: 15 / 200
+  Covered customers: 895 / 1000 ( 89.5%)
+  Budget used:      19.61 /      20.00 ( 98.0%)
+  Total demand covered:   44029.00 /   49667.00 ( 88.6%)
+  Runtime:   0.0005 seconds
+
+OPEN FACILITIES:
+  115 187 42 199 171 110 32 185 135 152 27 10 156 158 118
+
+======================================================================
+
