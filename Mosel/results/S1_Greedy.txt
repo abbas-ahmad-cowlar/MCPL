@@ -1,0 +1,31 @@
+======================================================================
+MCLP GREEDY HEURISTIC
+======================================================================
+Instance: data/S1.dat
+Facilities: 50, Customers: 200
+Budget: 10
+======================================================================
+
+Instance Statistics:
+  Total facility cost:     283.05
+  Total demand:    9749.00
+  Budget ratio:   3.53%
+  Coverage density:  13.07%
+
+Starting Greedy Construction...
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+
+GREEDY SOLUTION:
+  Iterations: 7
+  Open facilities: 6 / 50
+  Covered customers: 153 / 200 ( 76.5%)
+  Budget used:       9.31 /      10.00 ( 93.1%)
+  Total demand covered:    7646.00 /    9749.00 ( 78.4%)
+  Runtime:   0.0003 seconds
+
+OPEN FACILITIES:
+  38 34 13 39 28 41
+
+======================================================================
+
