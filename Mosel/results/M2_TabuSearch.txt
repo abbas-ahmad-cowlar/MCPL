@@ -1,0 +1,45 @@
+======================================================================
+MCLP TABU SEARCH METAHEURISTIC
+======================================================================
+Instance: data/M2.dat
+Facilities: 100, Customers: 500
+Budget: 20
+======================================================================
+
+  Max iterations: 500
+  Tabu tenure: 10
+  Candidate list size: 20
+  Intensification frequency: 50
+  Stagnation limit: 100
+
+Initializing with greedy solution...
+Initial Solution:
+  Open facilities: 11
+  Objective:   22221.00 /   25444.00 ( 87.3%)
+  Budget used:      19.55 / 20
+
+Starting Tabu Search...
+----------------------------------------------------------------------
+  [Iter 105] DIVERSIFICATION: Shaking solution...
+  [Iter 205] DIVERSIFICATION: Shaking solution...
+  [Iter 305] DIVERSIFICATION: Shaking solution...
+  [Iter 405] DIVERSIFICATION: Shaking solution...
+----------------------------------------------------------------------
+
+TABU SEARCH SOLUTION:
+  Total iterations: 500
+  Improvements: 3
+  Last improvement at iteration: 5
+  Open facilities: 10 / 100
+  Covered customers: 435 / 500 ( 87.0%)
+  Budget used:      19.93 /      20.00 ( 99.7%)
+  Initial objective:   22221.00
+  Final objective:   22497.00 /   25444.00 ( 88.4%)
+  Improvement:     276.00 (  1.2%)
+  Runtime:   0.2060 seconds
+
+OPEN FACILITIES:
+  81 27 82 91 53 9 28 74 54 63
+
+======================================================================
+
