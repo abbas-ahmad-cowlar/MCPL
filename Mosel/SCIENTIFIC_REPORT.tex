@@ -65,8 +65,8 @@
 
 \author{
 Syed Abbas Ahmad\\
-\textit{Implementation in FICO Xpress Mosel}\\
-Technical Report
+\textit{Pakistan Institute of Engineering and Applied Sciences}\\
+Islamabad
 }
 
 \date{\today}
@@ -457,21 +457,24 @@ where $z^*$ is the best known solution and $z_A$ is the objective value found by
 \centering
 \caption{Performance Comparison Across All Instances}
 \label{tab:performance}
-\begin{tabular}{lrrrrrrrrrrrr}
-\toprule
-Instance & \multicolumn{2}{c}{ClosestNeighbor} & \multicolumn{2}{c}{Exact} & \multicolumn{2}{c}{Greedy} & \multicolumn{2}{c}{LocalSearch} & \multicolumn{2}{c}{MultiStart} & \multicolumn{2}{c}{TabuSearch} \\
-& Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% \\
-\midrule
-S1 & 6183 & 19.1\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% \\
-S2 & 7107 & 4.6\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% \\
-M1 & 20289 & 3.8\% & \textbf{21099} & 0.0\% & 20248 & 4.0\% & 20439 & 3.1\% & 20883 & 1.0\% & \textbf{21099} & 0.0\% \\
-M2 & 20481 & 9.0\% & 22448 & 0.2\% & 22221 & 1.2\% & 22221 & 1.2\% & 22332 & 0.7\% & \textbf{22497} & 0.0\% \\
-L1 & 44029 & 7.9\% & 47522 & 0.5\% & 46173 & 3.4\% & \textbf{47783} & 0.0\% & \textbf{47783} & 0.0\% & 47306 & 1.0\% \\
-L2 & 38043 & 15.6\% & \textbf{45060} & 0.0\% & 43862 & 2.7\% & 43948 & 2.5\% & 44594 & 1.0\% & 44448 & 1.4\% \\
-XL1 & 84874 & 12.0\% & 96092 & 0.4\% & 94932 & 1.6\% & 95924 & 0.6\% & 96311 & 0.2\% & \textbf{96479} & 0.0\% \\
-XXL1 & 248474 & 0.9\% & --- & --- & 250732 & 0.0\% & \textbf{250788} & 0.0\% & \textbf{250788} & 0.0\% & 250732 & 0.0\% \\
-\bottomrule
-\end{tabular}
+% The resizebox forces the table to be exactly the text width
+\resizebox{\textwidth}{!}{%
+    \begin{tabular}{lrrrrrrrrrrrr}
+    \toprule
+    Instance & \multicolumn{2}{c}{ClosestNeighbor} & \multicolumn{2}{c}{Exact} & \multicolumn{2}{c}{Greedy} & \multicolumn{2}{c}{LocalSearch} & \multicolumn{2}{c}{MultiStart} & \multicolumn{2}{c}{TabuSearch} \\
+    & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% & Obj & GAP\% \\
+    \midrule
+    S1 & 6183 & 19.1\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% & \textbf{7646} & 0.0\% \\
+    S2 & 7107 & 4.6\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% & \textbf{7449} & 0.0\% \\
+    M1 & 20289 & 3.8\% & \textbf{21099} & 0.0\% & 20248 & 4.0\% & 20439 & 3.1\% & 20883 & 1.0\% & \textbf{21099} & 0.0\% \\
+    M2 & 20481 & 9.0\% & 22448 & 0.2\% & 22221 & 1.2\% & 22221 & 1.2\% & 22332 & 0.7\% & \textbf{22497} & 0.0\% \\
+    L1 & 44029 & 7.9\% & 47522 & 0.5\% & 46173 & 3.4\% & \textbf{47783} & 0.0\% & \textbf{47783} & 0.0\% & 47306 & 1.0\% \\
+    L2 & 38043 & 15.6\% & \textbf{45060} & 0.0\% & 43862 & 2.7\% & 43948 & 2.5\% & 44594 & 1.0\% & 44448 & 1.4\% \\
+    XL1 & 84874 & 12.0\% & 96092 & 0.4\% & 94932 & 1.6\% & 95924 & 0.6\% & 96311 & 0.2\% & \textbf{96479} & 0.0\% \\
+    XXL1 & 248474 & 0.9\% & --- & --- & 250732 & 0.0\% & \textbf{250788} & 0.0\% & \textbf{250788} & 0.0\% & 250732 & 0.0\% \\
+    \bottomrule
+    \end{tabular}%
+}
 \end{table}
 
 \textbf{Key Observations:}
@@ -544,7 +547,7 @@ Figure \ref{fig:runtime-vs-size} illustrates runtime growth as a function of pro
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/runtime_vs_size.pdf}
+\includegraphics[width=0.9\textwidth]{figures/runtime_vs_size.pdf}
 \caption{Runtime vs. Problem Size (log scale)}
 \label{fig:runtime-vs-size}
 \end{figure}
@@ -567,7 +570,7 @@ Figure \ref{fig:pareto} presents a Pareto frontier analysis showing the trade-of
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.75\textwidth]{figures/solution_quality_vs_size.pdf}
+\includegraphics[width=0.9\textwidth]{figures/solution_quality_vs_size.pdf}
 \caption{Solution Quality vs. Instance Size}
 \label{fig:pareto}
 \end{figure}
@@ -734,7 +737,7 @@ By demonstrating that high-quality MCLP solutions can be obtained in fractions o
 
 \section*{Acknowledgments}
 
-The authors thank the FICO Xpress development team for providing the optimization software platform. This work was supported by computational resources from [Institution Name].
+The authors thank the FICO Xpress development team for providing the optimization software platform. This work was supported by computational resources from Pakistan Institute of Engineering and Applied Sciences, Islamabad.
 
 \bibliographystyle{plain}
 \begin{thebibliography}{99}
