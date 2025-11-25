@@ -36,7 +36,6 @@ MCLP_Optimization_Suite/
 ├── results/                    # Benchmark Output Logs
 ├── SUMMARY.md                   # Executive Summary
 ├── REPORT.tex           # 📄 FINAL REPORT (LaTeX Source)
-├── REPORT_DELIVERY.md          # 📖 Delivery Guide
 ├── run_benchmark.ps1           # Main Execution Script
 └── summarize_results.ps1       # Result Analysis Script
 ```
@@ -86,7 +85,6 @@ To generate a summary table of the benchmark performance:
 
 - **[Executive Summary](REPORT.md)**: High-level analysis and key findings.
 - **[Final Report](REPORT.tex)**: Comprehensive academic-style report (LaTeX).
-- **[Delivery Guide](REPORT_DELIVERY.md)**: Instructions for compiling and using this package.
 - **[Pseudocode](pseudocode/)**: Detailed logic for each heuristic.
 
 ---
