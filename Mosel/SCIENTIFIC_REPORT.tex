@@ -374,6 +374,8 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
     \item \textbf{Diversification:} Solution perturbation after stagnation (after 100 non-improving iterations)
 \end{itemize}
 
+
+
 \begin{algorithm}[H]
 \caption{Tabu Search for MCLP (Detailed)}
 \begin{algorithmic}[1]
@@ -427,6 +429,16 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
         \State \textit{// Check tabu status: A facility is tabu if tabu\_expiry(i) > current iter}
         \State $\text{is\_tabu} \leftarrow$ (any facility in move has $\text{tabu\_expiry} > iter$)
         \State
+
+        \algstore{myalg} % <--- SAVES THE STATE HERE
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Tabu Search for MCLP (Part 2: Selection \& Updates)}
+\begin{algorithmic}[1]
+    \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
+    
         \State \textit{// Aspiration criterion: Accept tabu move if it beats global best}
         \State $\text{aspiration} \leftarrow (f(S) + \Delta_m > f^*)$
         \State
@@ -476,6 +488,16 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
         \State $\text{stagnation} \leftarrow \text{stagnation} + 1$
     \EndIf
     \State
+
+            \algstore{myalg} % <--- SAVES THE STATE HERE
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Tabu Search for MCLP (Part 3: Selection \& Updates)}
+\begin{algorithmic}[1]
+    \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
+    
     \State \textbf{6. INTENSIFICATION (every INTENSIFY\_FREQ iterations):}
     \If{$iter \mod \text{INTENSIFY\_FREQ} = 0$}
         \State Run local search from current $S$ for 10 iterations \Comment{Exploit current region thoroughly}
@@ -493,6 +515,7 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
 \State \Return $S^*$, $f^*$ \Comment{Return best solution and objective found}
 \end{algorithmic}
 \end{algorithm}
+
 
 \textbf{Parameters:} MAX\_ITER = 500, tenure $\theta = 10$, candidate list size = 20.
 
@@ -909,7 +932,7 @@ This appendix provides comprehensive documentation for practitioners to use, und
 
 All algorithms read instance data from standardized \texttt{.dat} files with the following structure:
 
-\begin{lstlisting}
+\begin{lstlisting}.
 ! MCLP Instance Data File Format
 ! Comments begin with exclamation mark
 
@@ -970,7 +993,7 @@ Implements the compact MIP formulation (Section 3) using FICO Xpress Optimizer.
   \item Automatic handling of infeasibility
 \end{itemize}
 
-\paragraph{Configurable Parameters:}
+\paragraph{Configurable Parameters:}.
 \begin{lstlisting}[language=Pascal]
 parameters
   DATA_FILE = "data/instance.dat"  ! Input data file
@@ -980,7 +1003,7 @@ parameters
 end-parameters
 \end{lstlisting}
 
-\paragraph{Usage:}
+\paragraph{Usage:}.
 \begin{lstlisting}[language=bash]
 mosel exec mclp_exact.mos "DATA_FILE=data/S1.dat"
 mosel exec mclp_exact.mos "DATA_FILE=data/XL1.dat TIME_LIMIT=300"
@@ -1002,7 +1025,7 @@ Constructive heuristic selecting facilities with maximum coverage gain per cost.
   \item Suitable for warm-starting other algorithms
 \end{itemize}
 
-\paragraph{Usage:}
+\paragraph{Usage:}.
 \begin{lstlisting}[language=bash]
 mosel exec mclp_greedy.mos "DATA_FILE=data/M1.dat"
 \end{lstlisting}
@@ -1032,7 +1055,7 @@ Improvement heuristic using facility swap and flip neighborhoods.
   \item Automatic convergence detection
 \end{itemize}
 
-\paragraph{Configurable Parameters:}
+\paragraph{Configurable Parameters:}.
 \begin{lstlisting}[language=Pascal]
 parameters
   DATA_FILE = "data/instance.dat"
@@ -1041,10 +1064,11 @@ parameters
 end-parameters
 \end{lstlisting}
 
-\paragraph{Usage:}
+\paragraph{Usage:}.
 \begin{lstlisting}[language=bash]
 mosel exec mclp_local_search.mos "DATA_FILE=data/L1.dat"
-mosel exec mclp_local_search.mos "DATA_FILE=data/XXL1.dat INIT_METHOD=random"
+mosel exec mclp_local_search.mos \
+    "DATA_FILE=data/XXL1.dat INIT_METHOD=random"
 \end{lstlisting}
 
 \subsubsection{Multi-Start Local Search: \texttt{mclp\_multistart.mos}}
@@ -1060,7 +1084,7 @@ Runs local search from multiple diverse initial solutions.
   \item Suitable for production deployment
 \end{itemize}
 
-\paragraph{Configurable Parameters:}
+\paragraph{Configurable Parameters:}.
 \begin{lstlisting}[language=Pascal]
 parameters
   DATA_FILE = "data/instance.dat"
@@ -1074,7 +1098,7 @@ end-parameters
 \paragraph{Description:}
 Advanced metaheuristic with tabu list, aspiration criteria, and diversification.
 
-\paragraph{Key Features:}
+\paragraph{Key Features:}.
 \begin{itemize}
   \item Best overall solution quality
   \item Short-term memory (tabu list) prevents cycling
@@ -1083,7 +1107,7 @@ Advanced metaheuristic with tabu list, aspiration criteria, and diversification.
   \item Candidate list restriction for efficiency
 \end{itemize}
 
-\paragraph{Configurable Parameters:}
+\paragraph{Configurable Parameters:} .
 \begin{lstlisting}[language=Pascal]
 parameters
   DATA_FILE = "data/instance.dat"
@@ -1095,7 +1119,8 @@ parameters
 end-parameters
 \end{lstlisting}
 
-\paragraph{Usage:}
+\paragraph{Usage:}  .
+
 \begin{lstlisting}[language=bash]
 mosel exec mclp_tabu_search.mos "DATA_FILE=data/XL1.dat"
 mosel exec mclp_tabu_search.mos "DATA_FILE=data/M2.dat MAX_ITER=1000"
@@ -1240,7 +1265,7 @@ For optimal performance on specific instance classes:
   \item Python 3.7+ (for instance generation and visualization)
 \end{itemize}
 
-\paragraph{Python Dependencies:}
+\paragraph{Python Dependencies:}.
 \begin{lstlisting}[language=bash]
 pip install numpy pandas matplotlib scipy
 \end{lstlisting}
