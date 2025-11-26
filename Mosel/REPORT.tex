@@ -466,23 +466,122 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
 \subsubsection{Algorithm Pseudocode}
 
 \begin{algorithm}[H]
-\caption{Tabu Search for MCLP (Simplified)}
+\caption{Tabu Search for MCLP (Detailed)}
 \begin{algorithmic}[1]
-\State $S \leftarrow \text{Greedy()}$, $S^* \leftarrow S$
-\State $\text{tabu\_list} \leftarrow \emptyset$
+\State \textbf{INITIALIZATION:}
+\State $S \leftarrow \text{Greedy()}$ \Comment{Generate initial solution using greedy heuristic}
+\State $S^* \leftarrow S$, $f^* \leftarrow f(S)$ \Comment{Initialize best solution and objective}
+\State $\text{tabu\_expiry}(i) \leftarrow 0$ for all $i \in I$ \Comment{Tabu list: stores iteration when facility $i$ becomes non-tabu}
+\State $\text{move\_freq}(i) \leftarrow 0$ for all $i \in I$ \Comment{Long-term memory: tracks how often facility $i$ was moved}
+\State $\text{covered\_count}(j) \leftarrow |\{i \in S : j \in J(i)\}|$ for all $j \in J$ \Comment{Track how many open facilities cover each customer}
+\State $\text{stagnation} \leftarrow 0$ \Comment{Counter for iterations without improvement}
+\State
+\State \textbf{MAIN LOOP:}
 \For{$iter = 1$ to $\text{MAX\_ITER}$}
-    \State $\text{candidates} \leftarrow \text{GenerateCandidateMoves}(S)$
-    \State $\text{best\_move} \leftarrow \arg\max_{m \in \text{candidates}, m \notin \text{tabu\_list or satisfies aspiration}} \Delta(m)$
-    \State $S \leftarrow \text{ApplyMove}(S, \text{best\_move})$
-    \If{$f(S) > f(S^*)$}
-        \State $S^* \leftarrow S$
+    \State
+    \State \textbf{1. GENERATE CANDIDATE MOVES:}
+    \State $\text{candidates} \leftarrow \emptyset$ \Comment{List of (move\_type, facility\_out, facility\_in, delta)}
+    \State
+    \State \textit{// Close Moves: Remove an open facility}
+    \For{each $i \in S$}
+        \State $\text{loss} \leftarrow \sum_{j \in J(i) : \text{covered\_count}(j) = 1} d_j$ \Comment{Demand lost if only $i$ covers these customers}
+        \State $\Delta \leftarrow -\text{loss}$ \Comment{Negative delta (closing reduces coverage)}
+        \State Add ("close", $i$, null, $\Delta$) to candidates
+    \EndFor
+    \State
+    \State \textit{// Open Moves: Add a closed facility (if budget permits)}
+    \For{each $i \in I \setminus S$ where $\sum_{k \in S} f_k + f_i \leq B$}
+        \State $\text{gain} \leftarrow \sum_{j \in J(i) : \text{covered\_count}(j) = 0} d_j$ \Comment{New demand covered by opening $i$}
+        \State $\Delta \leftarrow \text{gain}$ \Comment{Positive delta (opening adds coverage)}
+        \State Add ("open", $i$, null, $\Delta$) to candidates
+    \EndFor
+    \State
+    \State \textit{// Swap Moves: Close one facility and open another simultaneously}
+    \For{each $i_{\text{out}} \in S$, $i_{\text{in}} \in I \setminus S$ (limited to top CANDIDATE\_SIZE pairs)}
+        \If{$\sum_{k \in S \setminus \{i_{\text{out}}\}} f_k + f_{i_{\text{in}}} \leq B$}
+            \State $\text{loss} \leftarrow \sum_{j \in J(i_{\text{out}}) : \text{covered\_count}(j) = 1} d_j$ \Comment{Demand lost by closing $i_{\text{out}}$}
+            \State $\text{gain} \leftarrow \sum_{j \in J(i_{\text{in}}) : \text{covered\_count}(j) = 0 \text{ or } (\text{covered\_count}(j) = 1 \land i_{\text{out}} \in I(j))} d_j$
+            \State \hspace{2.5cm} \Comment{New demand: uncovered OR only covered by $i_{\text{out}}$}
+            \State $\Delta \leftarrow \text{gain} - \text{loss}$ \Comment{Net change in coverage}
+            \State Add ("swap", $i_{\text{out}}$, $i_{\text{in}}$, $\Delta$) to candidates
+        \EndIf
+    \EndFor
+    \State
+    \State \textbf{2. SORT CANDIDATES BY DELTA (descending):}
+    \State Sort candidates by $\Delta$ value (best improvements first)
+    \State
+    \State \textbf{3. SELECT BEST NON-TABU MOVE WITH ASPIRATION:}
+    \State $\text{best\_move} \leftarrow \text{null}$, $\text{best\_delta} \leftarrow -\infty$
+    \For{each move $m$ in top CANDIDATE\_SIZE candidates}
+        \State Extract facilities involved: $i_{\text{out}}$, $i_{\text{in}}$, $\Delta_m$
+        \State
+        \State \textit{// Check tabu status: A facility is tabu if tabu\_expiry(i) > current iter}
+        \State $\text{is\_tabu} \leftarrow$ (any facility in move has $\text{tabu\_expiry} > iter$)
+        \State
+        \State \textit{// Aspiration criterion: Accept tabu move if it beats global best}
+        \State $\text{aspiration} \leftarrow (f(S) + \Delta_m > f^*)$
+        \State
+        \If{(not is\_tabu OR aspiration) AND $\Delta_m > \text{best\_delta}$}
+            \State $\text{best\_move} \leftarrow m$, $\text{best\_delta} \leftarrow \Delta_m$
+            \If{$\Delta_m > 0$} \textbf{break} \Comment{First-improvement: accept first improving move}
+            \EndIf
+        \EndIf
+    \EndFor
+    \State
+    \If{best\_move = null AND candidates not empty}
+        \State $\text{best\_move} \leftarrow$ first candidate \Comment{Accept least-bad move to escape local optimum}
     \EndIf
-    \State Update tabu\_list
-    \If{stagnation detected}
-        \State $S \leftarrow \text{Diversify}(S)$
+    \State
+    \State \textbf{4. APPLY SELECTED MOVE:}
+    \If{move\_type = "close"}
+        \State $S \leftarrow S \setminus \{i_{\text{out}}\}$ \Comment{Remove facility from solution}
+        \For{each $j \in J(i_{\text{out}})$}
+            \State $\text{covered\_count}(j) \leftarrow \text{covered\_count}(j) - 1$ \Comment{Decrement coverage counter}
+            \If{covered\_count$(j) = 0$}
+                \State $f(S) \leftarrow f(S) - d_j$ \Comment{Customer $j$ now uncovered, subtract demand}
+            \EndIf
+        \EndFor
+        \State $\text{tabu\_expiry}(i_{\text{out}}) \leftarrow iter + \text{TABU\_TENURE}$ \Comment{Mark facility as tabu for next TENURE iterations}
+        \State $\text{move\_freq}(i_{\text{out}}) \leftarrow \text{move\_freq}(i_{\text{out}}) + 1$ \Comment{Update frequency for diversification}
+    \ElsIf{move\_type = "open"}
+        \State $S \leftarrow S \cup \{i_{\text{in}}\}$ \Comment{Add facility to solution}
+        \For{each $j \in J(i_{\text{in}})$}
+            \If{covered\_count$(j) = 0$}
+                \State $f(S) \leftarrow f(S) + d_j$ \Comment{Customer $j$ newly covered, add demand}
+            \EndIf
+            \State $\text{covered\_count}(j) \leftarrow \text{covered\_count}(j) + 1$
+        \EndFor
+        \State $\text{tabu\_expiry}(i_{\text{in}}) \leftarrow iter + \text{TABU\_TENURE}$
+        \State $\text{move\_freq}(i_{\text{in}}) \leftarrow \text{move\_freq}(i_{\text{in}}) + 1$
+    \ElsIf{move\_type = "swap"}
+        \State Apply close move for $i_{\text{out}}$ (as above)
+        \State Apply open move for $i_{\text{in}}$ (as above)
+        \State Update tabu and frequency for both facilities
+    \EndIf
+    \State
+    \State \textbf{5. UPDATE BEST SOLUTION:}
+    \If{$f(S) > f^*$}
+        \State $S^* \leftarrow S$, $f^* \leftarrow f(S)$ \Comment{New global best found}
+        \State $\text{stagnation} \leftarrow 0$
+    \Else
+        \State $\text{stagnation} \leftarrow \text{stagnation} + 1$
+    \EndIf
+    \State
+    \State \textbf{6. INTENSIFICATION (every INTENSIFY\_FREQ iterations):}
+    \If{$iter \mod \text{INTENSIFY\_FREQ} = 0$}
+        \State Run local search from current $S$ for 10 iterations \Comment{Exploit current region thoroughly}
+        \State Update $S^*$ if local search finds improvement
+    \EndIf
+    \State
+    \State \textbf{7. DIVERSIFICATION (when stagnation $\geq$ STAGNATION\_LIMIT):}
+    \If{stagnation $\geq$ STAGNATION\_LIMIT}
+        \State Remove 30\% of facilities with highest move\_freq from $S$ \Comment{Abandon frequently-used facilities}
+        \State Add random low-frequency facilities to $S$ (respecting budget) \Comment{Explore new solution regions}
+        \State $\text{stagnation} \leftarrow 0$
     \EndIf
 \EndFor
-\State \Return $S^*$
+\State
+\State \Return $S^*$, $f^*$ \Comment{Return best solution and objective found}
 \end{algorithmic}
 \end{algorithm}
 
