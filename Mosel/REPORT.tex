@@ -415,6 +415,30 @@ Multi-Start runs Local Search from multiple diverse initial solutions to escape 
   \item Typically 5-10\% better than single-run local search
 \end{itemize}
 
+\subsubsection{Algorithm Pseudocode}
+
+\begin{algorithm}[H]
+\caption{Multi-Start Local Search}
+\begin{algorithmic}[1]
+\State $S^* \leftarrow \emptyset$, $f^* \leftarrow 0$
+\For{$r = 1$ to $R$} \Comment{$R$ restarts}
+    \State $S_0 \leftarrow \text{RandomSolution}()$
+    \State $S \leftarrow \text{LocalSearch}(S_0)$
+    \If{$f(S) > f^*$}
+        \State $S^* \leftarrow S$, $f^* \leftarrow f(S)$
+    \EndIf
+\EndFor
+\State \Return $S^*$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Complexity}
+\begin{itemize}
+  \item \textbf{Time}: $O(R \cdot T_{\text{LocalSearch}})$ where $R$ is number of restarts
+  \item \textbf{Space}: $O(|I| + |J|)$
+  \item \textbf{Practical runtime}: 0.05-1 second for $R=10$ restarts
+\end{itemize}
+
 \subsection{Tabu Search}
 
 \subsubsection{Description}
@@ -438,6 +462,29 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
   \item \texttt{intensify\_freq}: Intensification frequency (default: 50 iterations)
   \item \texttt{stagnation\_lim}: Diversification trigger (default: 100 iterations)
 \end{itemize}
+
+\subsubsection{Algorithm Pseudocode}
+
+\begin{algorithm}[H]
+\caption{Tabu Search for MCLP (Simplified)}
+\begin{algorithmic}[1]
+\State $S \leftarrow \text{Greedy()}$, $S^* \leftarrow S$
+\State $\text{tabu\_list} \leftarrow \emptyset$
+\For{$iter = 1$ to $\text{MAX\_ITER}$}
+    \State $\text{candidates} \leftarrow \text{GenerateCandidateMoves}(S)$
+    \State $\text{best\_move} \leftarrow \arg\max_{m \in \text{candidates}, m \notin \text{tabu\_list or satisfies aspiration}} \Delta(m)$
+    \State $S \leftarrow \text{ApplyMove}(S, \text{best\_move})$
+    \If{$f(S) > f(S^*)$}
+        \State $S^* \leftarrow S$
+    \EndIf
+    \State Update tabu\_list
+    \If{stagnation detected}
+        \State $S \leftarrow \text{Diversify}(S)$
+    \EndIf
+\EndFor
+\State \Return $S^*$
+\end{algorithmic}
+\end{algorithm}
 
 \subsubsection{Complexity}
 \begin{itemize}
