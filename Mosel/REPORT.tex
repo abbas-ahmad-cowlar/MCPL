@@ -462,7 +462,6 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
   \item \texttt{intensify\_freq}: Intensification frequency (default: 50 iterations)
   \item \texttt{stagnation\_lim}: Diversification trigger (default: 100 iterations)
 \end{itemize}
-
 \subsubsection{Algorithm Pseudocode}
 
 \begin{algorithm}[H]
@@ -517,7 +516,16 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
         \State
         \State \textit{// Check tabu status: A facility is tabu if tabu\_expiry(i) > current iter}
         \State $\text{is\_tabu} \leftarrow$ (any facility in move has $\text{tabu\_expiry} > iter$)
-        \State
+
+        \algstore{myalg} % <--- SAVES THE STATE HERE
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Tabu Search for MCLP (Part 2: Selection \& Updates)}
+\begin{algorithmic}[1]
+    \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
+    
         \State \textit{// Aspiration criterion: Accept tabu move if it beats global best}
         \State $\text{aspiration} \leftarrow (f(S) + \Delta_m > f^*)$
         \State
@@ -566,7 +574,16 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
     \Else
         \State $\text{stagnation} \leftarrow \text{stagnation} + 1$
     \EndIf
-    \State
+
+            \algstore{myalg} % <--- SAVES THE STATE HERE
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\caption{Tabu Search for MCLP (Part 3: Selection \& Updates)}
+\begin{algorithmic}[1]
+    \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
+    
     \State \textbf{6. INTENSIFICATION (every INTENSIFY\_FREQ iterations):}
     \If{$iter \mod \text{INTENSIFY\_FREQ} = 0$}
         \State Run local search from current $S$ for 10 iterations \Comment{Exploit current region thoroughly}
@@ -584,6 +601,7 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
 \State \Return $S^*$, $f^*$ \Comment{Return best solution and objective found}
 \end{algorithmic}
 \end{algorithm}
+
 
 \subsubsection{Complexity}
 \begin{itemize}
