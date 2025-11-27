@@ -6,8 +6,7 @@
    1. Tabu list management (recency-based memory)
    2. Aspiration criterion (override tabu if best found)
    3. Candidate list restriction (evaluate top moves only)
-   4. Intensification (periodic local search)
-   5. Diversification (shake on stagnation)
+   4. Diversification (shake on stagnation)
 
    Key Features:
    - Short-term memory: Tabu tenure for recently moved facilities
@@ -38,7 +37,6 @@ model "MCLP_Tabu_Search"
     MAX_ITERATIONS = 500               ! Maximum TS iterations
     TABU_TENURE = 10                   ! Tabu list tenure
     CANDIDATE_SIZE = 20                ! Candidate list size
-    INTENSIFY_FREQ = 50                ! Intensification frequency
     STAGNATION_LIMIT = 100             ! Diversification trigger
     INIT_METHOD = "greedy"             ! Initial solution (greedy/random)
     SEED = 42                          ! Random seed
@@ -112,14 +110,6 @@ model "MCLP_Tabu_Search"
     start_time: real
     total_demand: real
 
-    ! Local search variables
-    ls_iter: integer
-    ls_best_delta: real
-    ls_best_move: string
-    ls_best_i: integer
-    ls_best_j: integer
-    ls_found: boolean
-
     ! Diversification variables
     freq_array: array(range) of integer
     num_shake: integer
@@ -171,7 +161,6 @@ model "MCLP_Tabu_Search"
     writeln("  Max iterations: ", MAX_ITERATIONS)
     writeln("  Tabu tenure: ", TABU_TENURE)
     writeln("  Candidate list size: ", CANDIDATE_SIZE)
-    writeln("  Intensification frequency: ", INTENSIFY_FREQ)
     writeln("  Stagnation limit: ", STAGNATION_LIMIT, "\n")
   end-if
 
@@ -591,104 +580,6 @@ model "MCLP_Tabu_Search"
                 strfmt(objective, 10, 2), ", best=",
                 strfmt(objective_best, 10, 2), ", stag=", stagnation_counter)
       end-if
-    end-if
-
-    !================================================
-    ! INTENSIFICATION: Periodic local search
-    !================================================
-
-    if iteration mod INTENSIFY_FREQ = 0 then
-      if VERBOSE >= 2 then
-        writeln("  [Iter ", iteration, "] INTENSIFICATION: Running local search...")
-      end-if
-
-      ! Run a few local search iterations
-      ls_iter := 0
-      while (ls_iter < 10) do
-        ls_iter += 1
-
-        ! Find best improving move
-        ls_best_delta := 0.0
-        ls_best_move := ""
-        ls_best_i := -1
-        ls_best_j := -1
-        ls_found := false
-
-        ! Try close
-        forall(i in K) do
-          loss := 0.0
-          forall(j in J_i(i)) do
-            if covered_by_count(j) = 1 then
-              loss += DEMAND(j)
-            end-if
-          end-do
-          delta := -loss
-
-          if delta > ls_best_delta then
-            ls_best_delta := delta
-            ls_best_move := "close"
-            ls_best_i := i
-            ls_found := true
-            break
-          end-if
-        end-do
-
-        ! Try open
-        if not ls_found then
-          forall(i in FACILITIES | i not in K) do
-            if budget_used + COST(i) > BUDGET then
-              next
-            end-if
-
-            gain := 0.0
-            forall(j in J_i(i)) do
-              if covered_by_count(j) = 0 then
-                gain += DEMAND(j)
-              end-if
-            end-do
-
-            if gain > ls_best_delta then
-              ls_best_delta := gain
-              ls_best_move := "open"
-              ls_best_i := i
-              ls_found := true
-              break
-            end-if
-          end-do
-        end-if
-
-        if not ls_found or ls_best_delta <= 1e-6 then
-          break
-        end-if
-
-        ! Apply move
-        if ls_best_move = "close" then
-          K -= {ls_best_i}
-          budget_used -= COST(ls_best_i)
-          forall(j in J_i(ls_best_i)) do
-            covered_by_count(j) -= 1
-            if covered_by_count(j) = 0 then
-              objective -= DEMAND(j)
-            end-if
-          end-do
-        elif ls_best_move = "open" then
-          K += {ls_best_i}
-          budget_used += COST(ls_best_i)
-          forall(j in J_i(ls_best_i)) do
-            if covered_by_count(j) = 0 then
-              objective += DEMAND(j)
-            end-if
-            covered_by_count(j) += 1
-          end-do
-        end-if
-
-        ! Update best if improved
-        if objective > objective_best + 0.01 then
-          objective_best := objective
-          K_best := K
-          stagnation_counter := 0
-        end-if
-      end-do
     end-if
 
     !================================================
