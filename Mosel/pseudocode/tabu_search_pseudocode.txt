@@ -2,7 +2,7 @@
 TABU SEARCH METAHEURISTIC FOR MCLP
 ================================================================================
 
-Algorithm Name: Tabu Search with Intensification and Diversification
+Algorithm Name: Tabu Search with Diversification
 
 Type: Memory-based metaheuristic
 Complexity: O(max_iter · candidate_size · nJ) time, O(nI + nJ) space
@@ -13,15 +13,14 @@ ALGORITHM DESCRIPTION
 
 Tabu Search (TS) is an advanced metaheuristic that uses adaptive memory to
 guide the search beyond local optima. Unlike basic local search, TS can
-accept worsening moves and employs strategic mechanisms to balance
-intensification (exploitation) and diversification (exploration).
+accept worsening moves and employs strategic diversification mechanisms to
+escape local optima and explore the solution space effectively.
 
 Key Mechanisms:
 1. SHORT-TERM MEMORY: Tabu list prevents cycling by forbidding recent moves
 2. ASPIRATION CRITERION: Override tabu status for exceptional moves
 3. CANDIDATE LIST: Restrict evaluation to promising moves for efficiency
-4. INTENSIFICATION: Periodic local search to exploit good regions
-5. DIVERSIFICATION: Strategic perturbation to escape stagnation
+4. DIVERSIFICATION: Strategic perturbation to escape stagnation
 
 Memory Structures:
 - Tabu list: Recency-based (facility → expiry_iteration)
@@ -42,7 +41,6 @@ ALGORITHM Tabu-Search(instance, max_iter, tenure, params)
     max_iter       - Maximum iterations
     tenure         - Tabu tenure (number of iterations)
     candidate_size - Candidate list restriction size
-    intensify_freq - Intensification frequency
     stagnation_lim - Diversification trigger threshold
 
   OUTPUT:
@@ -266,21 +264,7 @@ ALGORITHM Tabu-Search(instance, max_iter, tenure, params)
         END IF
       END IF
 
-      // ===== STEP 5: INTENSIFICATION =====
-
-      IF iteration MOD intensify_freq = 0 THEN
-        PRINT "Intensification at iteration ", iteration
-        K, objective ← LOCAL-SEARCH(K, 10)  // Run 10 LS iterations
-
-        // Update best if improved
-        IF objective > obj_best + ε THEN
-          obj_best ← objective
-          K_best ← K
-          stagnation_counter ← 0
-        END IF
-      END IF
-
-      // ===== STEP 6: DIVERSIFICATION =====
+      // ===== STEP 5: DIVERSIFICATION =====
 
       IF stagnation_counter ≥ stagnation_lim THEN
         PRINT "Diversification at iteration ", iteration
@@ -431,11 +415,6 @@ Total per iteration: O(nI · nJ)
 
 Total algorithm: O(max_iter · nI · nJ)
 
-With intensification (every intensify_freq iterations):
-  Additional: O((max_iter / intensify_freq) · ls_iter · nI · nJ)
-
-Overall: O(max_iter · nI · nJ)
-
 SPACE COMPLEXITY:
 
 - Solution storage: O(nI)
@@ -490,13 +469,6 @@ MAX ITERATIONS (max_iter):
   Quick run: 200-500
   Normal run: 500-2000
   Thorough run: 2000-5000
-
-INTENSIFICATION FREQUENCY (intensify_freq):
-  Purpose: How often to run local search
-  Rule of thumb: Every 50-100 iterations
-  Aggressive: 30-50
-  Moderate: 50-100
-  Conservative: 100-200
 
 STAGNATION LIMIT (stagnation_lim):
   Purpose: When to diversify
@@ -560,7 +532,7 @@ ADVANTAGES
 1. ESCAPES LOCAL OPTIMA: Can accept worsening moves strategically
 2. MEMORY-GUIDED SEARCH: Short and long-term memory structures
 3. ROBUST PERFORMANCE: Less sensitive to initial solution quality
-4. ADAPTIVE MECHANISMS: Intensification and diversification strategies
+4. ADAPTIVE MECHANISMS: Diversification strategies prevent stagnation
 5. SCALABLE: Efficient delta-evaluation and candidate restriction
 6. CONSISTENT QUALITY: Reliable high-quality solutions across instances
 7. WELL-STUDIED: Extensive theory and empirical validation
@@ -619,9 +591,8 @@ Key theoretical concepts:
 
 1. ADAPTIVE MEMORY: Short-term (recency) and long-term (frequency) memory
 2. ASPIRATION CRITERIA: Override restrictions for exceptional moves
-3. INTENSIFICATION: Exploit promising regions thoroughly
-4. DIVERSIFICATION: Strategic restart to explore new regions
-5. STRATEGIC OSCILLATION: Allow infeasible/feasible boundary crossing
+3. DIVERSIFICATION: Strategic restart to explore new regions
+4. STRATEGIC OSCILLATION: Allow infeasible/feasible boundary crossing
 
 The combination of these mechanisms enables TS to:
 - Escape local optima without random restarts
@@ -650,12 +621,7 @@ MOSEL-SPECIFIC CONSIDERATIONS:
    - Same as Local Search: covered_by_count[j] = # facilities covering j
    - Enables O(nJ) delta-evaluation
 
-5. Intensification:
-   - Embedded local search procedure
-   - Run for fixed iterations (e.g., 10)
-   - No tabu restrictions during intensification
-
-6. Diversification:
+5. Diversification:
    - Identify frequent facilities via move_frequency
    - Remove top-k frequent, add random infrequent
    - Reset stagnation counter after shake
