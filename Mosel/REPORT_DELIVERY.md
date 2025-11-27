@@ -10,6 +10,8 @@ This package contains a comprehensive technical report on the Maximum Covering L
 
 - **`REPORT.tex`**: Complete LaTeX source for the professional client report
 - **`REPORT.pdf`**: Compiled PDF (you must compile the .tex file - see instructions below)
+- **`SCIENTIFIC_REPORT.tex`**: Complete LaTeX source for the scientific report
+- **`SCIENTIFIC_REPORT.pdf`**: Compiled PDF (you must compile the .tex file - see instructions below)
 
 ### 2. Source Code (src/ directory)
 
