@@ -370,7 +370,6 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
     \item \textbf{Tabu Tenure:} Recently moved facilities are prohibited from being moved again for $\theta$ iterations (we use $\theta = 10$)
     \item \textbf{Aspiration Criterion:} Tabu status is overridden if a move leads to the best solution found so far
     \item \textbf{Candidate List:} Restricts neighborhood evaluation to the $k$ most promising moves (we use $k = 20$)
-    \item \textbf{Intensification:} Periodic focused search around best solutions (every 50 iterations)
     \item \textbf{Diversification:} Solution perturbation after stagnation (after 100 non-improving iterations)
 \end{itemize}
 
@@ -497,14 +496,8 @@ Tabu Search \cite{Glover1997} is a metaheuristic that explores beyond local opti
 \caption{Tabu Search for MCLP (Part 3: Selection \& Updates)}
 \begin{algorithmic}[1]
     \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
-    
-    \State \textbf{6. INTENSIFICATION (every INTENSIFY\_FREQ iterations):}
-    \If{$iter \mod \text{INTENSIFY\_FREQ} = 0$}
-        \State Run local search from current $S$ for 10 iterations \Comment{Exploit current region thoroughly}
-        \State Update $S^*$ if local search finds improvement
-    \EndIf
-    \State
-    \State \textbf{7. DIVERSIFICATION (when stagnation $\geq$ STAGNATION\_LIMIT):}
+
+    \State \textbf{6. DIVERSIFICATION (when stagnation $\geq$ STAGNATION\_LIMIT):}
     \If{stagnation $\geq$ STAGNATION\_LIMIT}
         \State Remove 30\% of facilities with highest move\_freq from $S$ \Comment{Abandon frequently-used facilities}
         \State Add random low-frequency facilities to $S$ (respecting budget) \Comment{Explore new solution regions}
@@ -1103,7 +1096,7 @@ Advanced metaheuristic with tabu list, aspiration criteria, and diversification.
   \item Best overall solution quality
   \item Short-term memory (tabu list) prevents cycling
   \item Aspiration criterion for exceptional moves
-  \item Intensification and diversification strategies
+  \item Diversification strategies prevent stagnation
   \item Candidate list restriction for efficiency
 \end{itemize}
 
@@ -1114,8 +1107,7 @@ parameters
   MAX_ITER = 500                   ! Maximum iterations
   TABU_TENURE = 10                 ! Tabu list tenure
   CANDIDATE_SIZE = 20              ! Candidate list size
-  INTENSIFY_FREQ = 50              ! Intensification frequency
-  DIVERSIFY_LIMIT = 100            ! Diversification trigger
+  STAGNATION_LIMIT = 100           ! Diversification trigger
 end-parameters
 \end{lstlisting}
 
