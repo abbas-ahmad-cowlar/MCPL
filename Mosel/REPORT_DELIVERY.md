@@ -158,19 +158,20 @@ The 30+ page report includes:
 
 ### Large Instances (L1, L2)
 
-- **L1**: Local Search (47783) > Exact (47522) in just 0.02 seconds!
+- **L1**: Tabu Search (47479) - best known solution
+- Runtime: 0.26 seconds
 - Heuristics highly competitive
 
 ### Extra Large (XL1)
 
-- **Best**: Tabu Search (96479) - beats Exact by 0.4%
-- Runtime: 1.18 seconds
+- **Best**: Tabu Search (95924) - competitive with Exact
+- Runtime: 0.61 seconds
 
 ### Massive (XXL1)
 
 - **Exact fails** (license limit)
-- **Local Search achieves optimal** (250788) in 0.25 seconds
-- Demonstrates heuristic superiority on large-scale problems
+- **Tabu Search achieves optimal** (250788) in 3.38 seconds
+- Demonstrates heuristic scalability on large-scale problems
 
 ## Running the Code
 
