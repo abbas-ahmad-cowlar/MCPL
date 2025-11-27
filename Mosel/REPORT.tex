@@ -443,14 +443,13 @@ Multi-Start runs Local Search from multiple diverse initial solutions to escape 
 
 \subsubsection{Description}
 
-Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive memory to guide the search beyond local optima. Unlike basic local search, Tabu Search can accept worsening moves and employs strategic mechanisms to balance intensification and diversification.
+Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive memory to guide the search beyond local optima. Unlike basic local search, Tabu Search can accept worsening moves and employs strategic diversification mechanisms to escape local optima.
 
 \subsubsection{Key Mechanisms}
 \begin{itemize}
   \item \textbf{Short-term memory}: Tabu list prevents cycling by forbidding recent moves
   \item \textbf{Aspiration criterion}: Override tabu status for exceptional moves
   \item \textbf{Candidate list}: Restrict evaluation to promising moves for efficiency
-  \item \textbf{Intensification}: Periodic focused search around best solutions
   \item \textbf{Diversification}: Strategic perturbation to escape stagnation
 \end{itemize}
 
@@ -459,7 +458,6 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
   \item \texttt{max\_iter}: Maximum iterations (default: 500)
   \item \texttt{tenure}: Tabu tenure length (default: 10)
   \item \texttt{candidate\_size}: Candidate list restriction (default: 20)
-  \item \texttt{intensify\_freq}: Intensification frequency (default: 50 iterations)
   \item \texttt{stagnation\_lim}: Diversification trigger (default: 100 iterations)
 \end{itemize}
 \subsubsection{Algorithm Pseudocode}
@@ -583,14 +581,8 @@ Tabu Search \cite{glover1997} is an advanced metaheuristic that uses adaptive me
 \caption{Tabu Search for MCLP (Part 3: Selection \& Updates)}
 \begin{algorithmic}[1]
     \algrestore{myalg} % <--- RESTORES STATE (indentation & line numbers)
-    
-    \State \textbf{6. INTENSIFICATION (every INTENSIFY\_FREQ iterations):}
-    \If{$iter \mod \text{INTENSIFY\_FREQ} = 0$}
-        \State Run local search from current $S$ for 10 iterations \Comment{Exploit current region thoroughly}
-        \State Update $S^*$ if local search finds improvement
-    \EndIf
-    \State
-    \State \textbf{7. DIVERSIFICATION (when stagnation $\geq$ STAGNATION\_LIMIT):}
+
+    \State \textbf{6. DIVERSIFICATION (when stagnation $\geq$ STAGNATION\_LIMIT):}
     \If{stagnation $\geq$ STAGNATION\_LIMIT}
         \State Remove 30\% of facilities with highest move\_freq from $S$ \Comment{Abandon frequently-used facilities}
         \State Add random low-frequency facilities to $S$ (respecting budget) \Comment{Explore new solution regions}
