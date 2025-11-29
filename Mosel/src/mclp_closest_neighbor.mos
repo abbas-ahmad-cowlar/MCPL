@@ -55,13 +55,7 @@ model "MCLP_ClosestNeighbor"
 
   declarations
     ! Additional variables
-    covered: set of integer
-    best_fac: integer
     customer: integer
-    cust_array: array(range) of integer
-    demand_array: array(range) of real
-    temp_d: real
-    temp_c: integer
     best_cost: real
     idx: integer
     temp_demand: real
@@ -118,13 +112,7 @@ model "MCLP_ClosestNeighbor"
     solve_time: real
     
     ! Algorithm variables
-    uncovered_customers: set of integer
     best_facility: integer
-    best_score: real
-    priority_score: real
-    potential_coverage: set of integer
-    new_coverage: set of integer
-    coverage_gain: real
     
     ! Solution metrics
     num_open: integer
@@ -184,6 +172,7 @@ model "MCLP_ClosestNeighbor"
       end-if
     end-do
   end-do
+
 
   !==================================================
   ! CLOSEST NEIGHBOR ALGORITHM
@@ -251,6 +240,7 @@ model "MCLP_ClosestNeighbor"
       covered_customers += J_i(best_facility)
       budget_used += best_cost
       facilities_opened += 1
+
     end-if
   end-do
 
@@ -292,6 +282,12 @@ model "MCLP_ClosestNeighbor"
     write(" ", i)
   writeln("")
 
+
   writeln("\n", "======================================================================")
+
+  !==================================================
+  ! SOLUTION VALIDATION
+  !==================================================
+
 
 end-model

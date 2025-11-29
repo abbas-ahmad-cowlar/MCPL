@@ -193,6 +193,7 @@ model "MCLP_Greedy"
     open_facilities += {best_facility}
     covered_customers += J_i(best_facility)
     budget_used += COST(best_facility)
+
   end-do
 
   solve_time := gettime - start_time
@@ -232,6 +233,12 @@ model "MCLP_Greedy"
     write(" ", i)
   writeln("")
 
+
   writeln("\n", "======================================================================")
+
+  !==================================================
+  ! SOLUTION VALIDATION
+  !==================================================
+
 
 end-model
