@@ -34,6 +34,7 @@ model "MCLP_ClosestNeighbor"
   parameters
     DATA_FILE = "data/test_tiny.dat"  ! Default instance
     SEED = 42                          ! Random seed (for tie-breaking)
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -74,6 +75,7 @@ model "MCLP_ClosestNeighbor"
     limit_check: integer
   end-declarations
 
+  if VERBOSE >= 1 then
     writeln("\n", "======================================================================")
     writeln("MCLP CLOSEST NEIGHBOR HEURISTIC")
     writeln("======================================================================")
@@ -81,6 +83,7 @@ model "MCLP_ClosestNeighbor"
     writeln("Facilities: ", nI, ", Customers: ", nJ)
     writeln("Budget: ", BUDGET)
     writeln("======================================================================", "\n")
+  end-if
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -153,11 +156,13 @@ model "MCLP_ClosestNeighbor"
   end-do
   coverage_density := total_arcs / (nI * nJ)
 
+  if VERBOSE >= 1 then
     writeln("Instance Statistics:")
     writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
     writeln("  Total demand: ", strfmt(total_demand, 10, 2))
     writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
     writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%\n")
+  end-if
 
   !==================================================
   ! SORT CUSTOMERS BY DEMAND (DESCENDING)
@@ -194,6 +199,80 @@ model "MCLP_ClosestNeighbor"
     end-do
   end-do
 
+  if VERBOSE >= 2 then
+    writeln("Customers sorted by demand (descending):")
+    limit := 10
+    if nJ < 10 then limit := nJ; end-if
+    forall(i in 1..limit) do
+      writeln("  ", i, ". Customer ", customer_list(i),
+              " (demand: ", strfmt(demand_list(i), 8, 2), ")")
+    end-do
+    if nJ > 10 then
+      writeln("  ... (", nJ - 10, " more)")
+    end-if
+    writeln("")
+  end-if
+
+  !==================================================
+  ! CLOSEST NEIGHBOR ALGORITHM
+  !==================================================
+
+  declarations
+    open_facilities: set of integer
+    covered_customers: set of integer
+    budget_used: real
+    facilities_opened: integer
+  end-declarations
+
+  ! Initialize solution
+  open_facilities := {}
+  covered_customers := {}
+  budget_used := 0.0
+  facilities_opened := 0
+
+  start_time := gettime
+
+  if VERBOSE >= 1 then
+    writeln("Starting Closest Neighbor Construction...")
+    writeln("----------------------------------------------------------------------")
+  end-if
+
+  ! Iterate through customers in demand order
+  forall(k in 1..nJ) do
+    customer := customer_list(k)
+
+    ! Skip if already covered or budget exhausted
+    if customer in covered_customers or budget_used >= BUDGET then
+      next
+    end-if
+
+    ! Find closest (cheapest) uncovered facility for this customer
+    best_facility := -1
+    best_distance := MAX_REAL  ! Using cost as distance proxy
+    best_cost := MAX_REAL
+
+    forall(i in I_j(customer)) do
+      ! Skip if already open
+      if i in open_facilities then
+        next
+      end-if
+
+      ! Check budget feasibility
+      if budget_used + COST(i) > BUDGET then
+        next
+      end-if
+
+      ! Use facility cost as distance proxy
+      ! Tie-breaking: lower cost, then lower facility ID
+      distance := COST(i)
+
+      if distance < best_distance or
+         (abs(distance - best_distance) < 0.0001 and
+          (best_facility = -1 or i < best_facility)) then
+        best_distance := distance
+        best_facility := i
+        best_cost := COST(i)
+      end-if
     end-do
 
     ! If feasible facility found, open it
@@ -203,6 +282,13 @@ model "MCLP_ClosestNeighbor"
       budget_used += best_cost
       facilities_opened += 1
 
+      if VERBOSE >= 2 then
+        new_covered := getsize(J_i(best_facility))
+        writeln("  [Cust ", strfmt(customer, 3), ", demand=", strfmt(DEMAND(customer), 6, 2),
+                "] Open facility ", strfmt(best_facility, 3),
+                ": cost=", strfmt(best_cost, 6, 2),
+                ", covers ", new_covered, " customers")
+      end-if
     end-if
   end-do
 
@@ -223,6 +309,7 @@ model "MCLP_ClosestNeighbor"
   ! OUTPUT RESULTS
   !==================================================
 
+  if VERBOSE >= 1 then
     writeln("----------------------------------------------------------------------")
     writeln("\nCLOSEST NEIGHBOR SOLUTION:")
     writeln("  Customers processed: ", nJ)
@@ -243,3 +330,82 @@ model "MCLP_ClosestNeighbor"
     forall(i in open_facilities)
       write(" ", i)
     writeln("")
+  end-if
+
+  if VERBOSE >= 2 then
+    writeln("\nFACILITY DETAILS:")
+    forall(i in open_facilities) do
+      customers_covered := getsize(J_i(i) * covered_customers)
+      writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
+              ", covers ", customers_covered, " customers")
+    end-do
+
+    writeln("\nCOVERED CUSTOMERS:")
+    forall(j in covered_customers) do
+      covering_facilities := getsize(I_j(j) * open_facilities)
+      writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
+              ", covered by ", covering_facilities, " facilities")
+    end-do
+
+    writeln("\nUNCOVERED HIGH-DEMAND CUSTOMERS:")
+    uncovered_count := 0
+    limit_check := 10
+    if nJ < 10 then limit_check := nJ; end-if
+    forall(k in 1..limit_check) do
+      customer := customer_list(k)
+      if customer not in covered_customers then
+        writeln("  Customer ", strfmt(customer, 3), ": demand=",
+                strfmt(DEMAND(customer), 8, 2), " (NOT COVERED)")
+        uncovered_count += 1
+      end-if
+    end-do
+    if uncovered_count = 0 then
+      writeln("  (All high-demand customers covered)")
+    end-if
+  end-if
+
+  writeln("\n", "======================================================================")
+
+  !==================================================
+  ! SOLUTION VALIDATION
+  !==================================================
+
+  if VERBOSE >= 2 then
+    writeln("\nValidating solution...")
+
+    ! Check budget feasibility
+    if budget_used > BUDGET + 0.001 then
+      writeln("ERROR: Budget constraint violated!")
+      writeln("  Used: ", budget_used, ", Budget: ", BUDGET)
+    else
+      writeln("✓ Budget constraint satisfied")
+    end-if
+
+    ! Check coverage consistency
+    violations := 0
+    forall(j in covered_customers) do
+      covering_count := sum(i in I_j(j)) if(i in open_facilities, 1, 0)
+      if covering_count < 1 then
+        writeln("ERROR: Customer ", j, " marked covered but no facility open!")
+        violations += 1
+      end-if
+    end-do
+
+    if violations = 0 then
+      writeln("✓ All coverage relationships valid")
+    else
+      writeln("ERROR: ", violations, " coverage violations")
+    end-if
+
+    ! Recompute objective
+    recomputed_obj := sum(j in covered_customers) DEMAND(j)
+    if abs(recomputed_obj - objective_value) < 0.001 then
+      writeln("✓ Objective value verified")
+    else
+      writeln("WARNING: Objective mismatch (", objective_value, " vs ", recomputed_obj, ")")
+    end-if
+
+    writeln("✓ Solution validation complete\n")
+  end-if
+
+end-model
