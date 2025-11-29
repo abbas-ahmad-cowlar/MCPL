@@ -40,7 +40,6 @@ model "MCLP_Tabu_Search"
     STAGNATION_LIMIT = 100             ! Diversification trigger
     INIT_METHOD = "greedy"             ! Initial solution (greedy/random)
     SEED = 42                          ! Random seed
-    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -121,15 +120,13 @@ model "MCLP_Tabu_Search"
     cand_count: integer
   end-declarations
 
-  if VERBOSE >= 1 then
-    writeln("\n", "======================================================================")
-    writeln("MCLP TABU SEARCH METAHEURISTIC")
-    writeln("======================================================================")
-    writeln("Instance: ", DATA_FILE)
-    writeln("Facilities: ", nI, ", Customers: ", nJ)
-    writeln("Budget: ", BUDGET)
-    writeln("======================================================================", "\n")
-  end-if
+  writeln("\n", "======================================================================")
+  writeln("MCLP TABU SEARCH METAHEURISTIC")
+  writeln("======================================================================")
+  writeln("Instance: ", DATA_FILE)
+  writeln("Facilities: ", nI, ", Customers: ", nJ)
+  writeln("Budget: ", BUDGET)
+  writeln("======================================================================", "\n")
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -157,12 +154,10 @@ model "MCLP_Tabu_Search"
 
   total_demand := sum(j in CUSTOMERS) DEMAND(j)
 
-  if VERBOSE >= 1 then
-    writeln("  Max iterations: ", MAX_ITERATIONS)
-    writeln("  Tabu tenure: ", TABU_TENURE)
-    writeln("  Candidate list size: ", CANDIDATE_SIZE)
-    writeln("  Stagnation limit: ", STAGNATION_LIMIT, "\n")
-  end-if
+  writeln("  Max iterations: ", MAX_ITERATIONS)
+  writeln("  Tabu tenure: ", TABU_TENURE)
+  writeln("  Candidate list size: ", CANDIDATE_SIZE)
+  writeln("  Stagnation limit: ", STAGNATION_LIMIT, "\n")
 
   !==================================================
   ! TABU SEARCH DATA STRUCTURES
@@ -195,9 +190,7 @@ model "MCLP_Tabu_Search"
 
   start_time := gettime
 
-  if VERBOSE >= 1 then
-    writeln("Initializing with ", INIT_METHOD, " solution...")
-  end-if
+  writeln("Initializing with ", INIT_METHOD, " solution...")
 
   ! Initialize solution
   K := {}
@@ -294,24 +287,20 @@ model "MCLP_Tabu_Search"
   objective_best := objective
   initial_obj := objective
 
-  if VERBOSE >= 1 then
-    writeln("Initial Solution:")
-    writeln("  Open facilities: ", getsize(K))
-    writeln("  Objective: ", strfmt(objective, 10, 2),
-            " / ", strfmt(total_demand, 10, 2),
-            " (", strfmt(objective/total_demand*100, 5, 1), "%)")
-    writeln("  Budget used: ", strfmt(budget_used, 10, 2), " / ", BUDGET)
-    writeln("")
-  end-if
+  writeln("Initial Solution:")
+  writeln("  Open facilities: ", getsize(K))
+  writeln("  Objective: ", strfmt(objective, 10, 2),
+          " / ", strfmt(total_demand, 10, 2),
+          " (", strfmt(objective/total_demand*100, 5, 1), "%)")
+  writeln("  Budget used: ", strfmt(budget_used, 10, 2), " / ", BUDGET)
+  writeln("")
 
   !==================================================
   ! TABU SEARCH - MAIN LOOP
   !==================================================
 
-  if VERBOSE >= 1 then
-    writeln("Starting Tabu Search...")
-    writeln("----------------------------------------------------------------------")
-  end-if
+  writeln("Starting Tabu Search...")
+  writeln("----------------------------------------------------------------------")
 
   iteration := 0
   improvements := 0
@@ -566,19 +555,8 @@ model "MCLP_Tabu_Search"
         improvements += 1
         last_improvement_iter := iteration
         stagnation_counter := 0
-
-        if VERBOSE >= 2 then
-          writeln("  [Iter ", strfmt(iteration, 4), "] NEW BEST: ",
-                  strfmt(objective_best, 10, 2), " (", move_type, ")")
-        end-if
       else
         stagnation_counter += 1
-      end-if
-
-      if VERBOSE >= 2 and iteration mod 20 = 0 then
-        writeln("  [Iter ", strfmt(iteration, 4), "] obj=",
-                strfmt(objective, 10, 2), ", best=",
-                strfmt(objective_best, 10, 2), ", stag=", stagnation_counter)
       end-if
     end-if
 
@@ -587,9 +565,7 @@ model "MCLP_Tabu_Search"
     !================================================
 
     if stagnation_counter >= STAGNATION_LIMIT then
-      if VERBOSE >= 1 then
-        writeln("  [Iter ", iteration, "] DIVERSIFICATION: Shaking solution...")
-      end-if
+      writeln("  [Iter ", iteration, "] DIVERSIFICATION: Shaking solution...")
 
       ! Build frequency arrays
       delcell(freq_array)
@@ -703,33 +679,31 @@ model "MCLP_Tabu_Search"
   budget_pct := budget_used_best / BUDGET * 100
   improvement := objective_best - initial_obj
 
-  if VERBOSE >= 1 then
-    writeln("----------------------------------------------------------------------")
-    writeln("\nTABU SEARCH SOLUTION:")
-    writeln("  Total iterations: ", iteration)
-    writeln("  Improvements: ", improvements)
-    writeln("  Last improvement at iteration: ", last_improvement_iter)
-    writeln("  Open facilities: ", num_open, " / ", nI)
-    writeln("  Covered customers: ", num_covered, " / ", nJ,
-            " (", strfmt(coverage_pct, 5, 1), "%)")
-    writeln("  Budget used: ", strfmt(budget_used_best, 10, 2),
-            " / ", strfmt(BUDGET, 10, 2),
-            " (", strfmt(budget_pct, 5, 1), "%)")
-    writeln("  Initial objective: ", strfmt(initial_obj, 10, 2))
-    writeln("  Final objective: ", strfmt(objective_best, 10, 2),
-            " / ", strfmt(total_demand, 10, 2),
-            " (", strfmt(demand_pct, 5, 1), "%)")
-    writeln("  Improvement: ", strfmt(improvement, 10, 2),
-            " (", strfmt(improvement/initial_obj*100, 5, 1), "%)")
-    writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
+  writeln("----------------------------------------------------------------------")
+  writeln("\nTABU SEARCH SOLUTION:")
+  writeln("  Total iterations: ", iteration)
+  writeln("  Improvements: ", improvements)
+  writeln("  Last improvement at iteration: ", last_improvement_iter)
+  writeln("  Open facilities: ", num_open, " / ", nI)
+  writeln("  Covered customers: ", num_covered, " / ", nJ,
+          " (", strfmt(coverage_pct, 5, 1), "%)")
+  writeln("  Budget used: ", strfmt(budget_used_best, 10, 2),
+          " / ", strfmt(BUDGET, 10, 2),
+          " (", strfmt(budget_pct, 5, 1), "%)")
+  writeln("  Initial objective: ", strfmt(initial_obj, 10, 2))
+  writeln("  Final objective: ", strfmt(objective_best, 10, 2),
+          " / ", strfmt(total_demand, 10, 2),
+          " (", strfmt(demand_pct, 5, 1), "%)")
+  writeln("  Improvement: ", strfmt(improvement, 10, 2),
+          " (", strfmt(improvement/initial_obj*100, 5, 1), "%)")
+  writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
 
-    writeln("\nOPEN FACILITIES:")
-    write(" ")
-    forall(i in K_best) do
-      write(" ", i)
-    end-do
-    writeln("")
-  end-if
+  writeln("\nOPEN FACILITIES:")
+  write(" ")
+  forall(i in K_best) do
+    write(" ", i)
+  end-do
+  writeln("")
 
   writeln("\n", "======================================================================")
 
