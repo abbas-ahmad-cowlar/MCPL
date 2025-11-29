@@ -18,6 +18,7 @@ MCLP_Optimization_Suite/
 │   ├── mclp_multistart.mos     # Multi-Start Local Search
 │   └── mclp_tabu_search.mos    # Tabu Search Metaheuristic
 ├── data/                       # Benchmark Datasets (.dat)
+│   ├── test_tiny.dat           # Test instance (small, for quick testing)
 │   ├── S1.dat, S2.dat          # Small (50 facilities, 200 customers)
 │   ├── M1.dat, M2.dat          # Medium (100 facilities, 500 customers)
 │   ├── L1.dat, L2.dat          # Large (200 facilities, 1000 customers)
@@ -27,6 +28,7 @@ MCLP_Optimization_Suite/
 │   ├── generate_instance.py    # Generate new random instances
 │   ├── generate_visualizations.py  # Generate figures and performance tables
 │   ├── update_report_tables.py # Auto-updates report with latest results
+│   ├── convert_json_to_mosel.py # Convert JSON data to Mosel format
 │   ├── run_benchmark.ps1        # Benchmark execution script
 │   └── install_miktex.ps1      # MiKTeX installation helper
 ├── results_complete/           # Latest Benchmark Output Logs
@@ -36,8 +38,13 @@ MCLP_Optimization_Suite/
 │   ├── runtime_comparison.pdf
 │   └── performance_table.tex
 ├── SCIENTIFIC_REPORT.tex       # 📄 Comprehensive Report (LaTeX Source)
+├── SCIENTIFIC_REPORT.pdf       # 📄 Compiled PDF Report
 ├── run_complete_workflow.ps1   # 🚀 Complete Workflow (Recommended)
-└── archive/                    # Archived deprecated files
+├── requirements_viz.txt        # Python dependencies for visualization
+└── archive/                    # Archived files
+    ├── latex_aux/              # LaTeX auxiliary files (.aux, .log, .out, .toc)
+    ├── report_backups/         # Report version backups
+    └── ...                     # Other archived files
 ```
 
 ## 🚀 Quick Start
@@ -108,6 +115,7 @@ This single command will:
 2. ✅ Generate all figures and performance tables
 3. ✅ Automatically update `SCIENTIFIC_REPORT.tex` with latest results
 4. ✅ Compile the PDF report (if LaTeX is installed)
+5. ✅ Automatically move LaTeX auxiliary files to `archive/latex_aux/` (keeps root clean)
 
 **Without PDF compilation:**
 ```powershell
@@ -118,7 +126,8 @@ This single command will:
 
 - **Performance Table**: All objective values and gaps
 - **Runtime Table**: All runtime values
-- **Backup System**: Previous report versions are archived in `archive/report_backups/`
+- **Backup System**: Previous report versions are archived in `archive/report_backups/` with timestamps
+- **LaTeX Files**: Auxiliary files (`.aux`, `.log`, `.out`, `.toc`) are automatically moved to `archive/latex_aux/` after compilation
 
 ### Manual Steps (After Workflow)
 
@@ -212,7 +221,8 @@ pdflatex SCIENTIFIC_REPORT.tex  # Run twice for references
 ### Report
 - **Source**: `SCIENTIFIC_REPORT.tex`
 - **Compiled**: `SCIENTIFIC_REPORT.pdf` (after compilation)
-- **Backups**: `archive/report_backups/SCIENTIFIC_REPORT_YYYYMMDD_HHMMSS.tex`
+- **Backups**: `archive/report_backups/SCIENTIFIC_REPORT_YYYYMMDD_HHMMSS.tex` and `.tex.backup`
+- **LaTeX Auxiliary Files**: `archive/latex_aux/` (`.aux`, `.log`, `.out`, `.toc` files)
 
 ## 🐛 Troubleshooting
 
@@ -243,9 +253,10 @@ pip install pandas matplotlib seaborn numpy
 - Review error messages in console
 
 ### Compilation errors
-- Check LaTeX log file (`SCIENTIFIC_REPORT.log`)
+- Check LaTeX log file: `archive/latex_aux/SCIENTIFIC_REPORT.log`
 - Ensure all figure files exist in `figures/` directory
 - Verify all required LaTeX packages are installed (MiKTeX installs automatically)
+- Note: LaTeX auxiliary files are automatically moved to `archive/latex_aux/` after compilation
 
 ## 📚 Documentation
 
@@ -271,8 +282,9 @@ If you modify any algorithm code:
 3. **Recompile if you made manual changes:**
    ```powershell
    pdflatex SCIENTIFIC_REPORT.tex
-   pdflatex SCIENTIFIC_REPORT.tex
+   pdflatex SCIENTIFIC_REPORT.tex  # Run twice for references
    ```
+   Note: LaTeX auxiliary files will remain in root if compiled manually. Use the workflow script to automatically organize them.
 
 ## 📝 License
 

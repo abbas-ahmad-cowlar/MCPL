@@ -65,3 +65,6 @@ Write-Host ""
 Write-Host "Or run complete workflow:" -ForegroundColor Yellow
 Write-Host "  .\run_complete_workflow.ps1" -ForegroundColor Gray
 Write-Host ""
+
+# Explicitly exit with success code
+exit 0
