@@ -100,16 +100,31 @@ if ($CompileReport) {
     } else {
         Write-Host "  Compiling SCIENTIFIC_REPORT.tex..." -NoNewline
         Push-Location $PSScriptRoot
+        
+        # Compile LaTeX (run twice for references)
         & pdflatex -interaction=nonstopmode SCIENTIFIC_REPORT.tex > $null 2>&1
         & pdflatex -interaction=nonstopmode SCIENTIFIC_REPORT.tex > $null 2>&1
+        
+        # Move LaTeX auxiliary files to archive/latex_aux/
+        $latexAuxDir = "archive\latex_aux"
+        New-Item -ItemType Directory -Force -Path $latexAuxDir | Out-Null
+        
+        $auxFiles = @("SCIENTIFIC_REPORT.aux", "SCIENTIFIC_REPORT.log", "SCIENTIFIC_REPORT.out", "SCIENTIFIC_REPORT.toc")
+        foreach ($file in $auxFiles) {
+            if (Test-Path $file) {
+                Move-Item -Path $file -Destination "$latexAuxDir\$file" -Force -ErrorAction SilentlyContinue
+            }
+        }
+        
         Pop-Location
         
         if (Test-Path "SCIENTIFIC_REPORT.pdf") {
             Write-Host " Done" -ForegroundColor Green
             Write-Host "  Report: SCIENTIFIC_REPORT.pdf" -ForegroundColor Cyan
+            Write-Host "  LaTeX aux files moved to: archive/latex_aux/" -ForegroundColor Gray
         } else {
             Write-Host " FAILED" -ForegroundColor Red
-            Write-Host "  Check LaTeX errors in the output above" -ForegroundColor Yellow
+            Write-Host "  Check LaTeX errors in: archive/latex_aux/SCIENTIFIC_REPORT.log" -ForegroundColor Yellow
         }
     }
 }

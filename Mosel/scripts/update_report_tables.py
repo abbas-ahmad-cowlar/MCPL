@@ -33,12 +33,28 @@ class ReportTableUpdater:
         
         # Extract table rows (skip header and footer)
         rows = []
+        in_data_section = False
         for line in content.split('\n'):
-            if '&' in line and not line.strip().startswith('%') and '\\toprule' not in line and '\\midrule' not in line and '\\bottomrule' not in line:
+            line_stripped = line.strip()
+            
+            # Mark when we enter the data section (after \midrule)
+            if '\\midrule' in line_stripped:
+                in_data_section = True
+                continue
+            
+            # Stop at \bottomrule
+            if '\\bottomrule' in line_stripped:
+                break
+            
+            # Only process rows in data section
+            if in_data_section and '&' in line_stripped:
                 # Parse LaTeX table row
-                line = line.strip().rstrip('\\')
-                if line and not line.startswith('Instance'):
-                    rows.append(line)
+                line_clean = line_stripped.rstrip('\\').strip()
+                # Skip header rows: lines starting with "Instance" or lines that are just "& Obj & GAP%..."
+                if line_clean and not line_clean.startswith('Instance'):
+                    # Skip if it's a header row (starts with & and contains "Obj & GAP%")
+                    if not (line_clean.startswith('&') and 'Obj & GAP%' in line_clean):
+                        rows.append(line_clean)
         
         self.performance_data = rows
         print(f"  Loaded {len(rows)} performance table rows")
@@ -111,21 +127,27 @@ class ReportTableUpdater:
             return False
         
         # Find the performance table section
-        pattern = r'(\\begin\{table\}.*?\\caption\{Performance Comparison.*?\\label\{tab:performance\}.*?\\begin\{tabular\}.*?\\toprule.*?\\midrule)(.*?)(\\bottomrule.*?\\end\{tabular\}.*?\\end\{table\})'
+        # Pattern handles both with and without \resizebox
+        # Captures: table start -> header rows -> data rows -> footer
+        pattern = r'(\\begin\{table\}.*?\\caption\{Performance Comparison.*?\\label\{tab:performance\}.*?(?:\\resizebox\{[^}]+\}\{[^}]+\}\{%)?.*?\\begin\{tabular\}.*?\\toprule.*?\\midrule\s*)(.*?)(\\bottomrule.*?\\end\{tabular\}.*?(?:\}%)?.*?\\end\{table\})'
         
         match = re.search(pattern, self.report_content, re.DOTALL)
         if not match:
             print("  WARNING: Performance table not found in report")
             return False
         
-        # Get the table header
+        # Get the table header (everything up to and including \midrule)
         header = match.group(1)
         footer = match.group(3)
         
+        # Extract existing data rows to check for duplicate headers
+        existing_data = match.group(2)
+        
         # Build new table rows from performance_table.tex
+        # Header rows are already filtered out in load_performance_table
         new_rows = []
         for row in self.performance_data:
-            # Clean up the row
+            # Clean up the row (already cleaned in load_performance_table, but be safe)
             row = row.strip()
             if row:
                 new_rows.append('    ' + row + ' \\\\')
@@ -230,11 +252,11 @@ class ReportTableUpdater:
             f.write(current_content)
         print(f"  Archived previous report: archive/report_backups/SCIENTIFIC_REPORT_{timestamp}.tex")
         
-        # Also create immediate backup (for quick recovery)
-        backup_file = self.report_file.with_suffix('.tex.backup')
+        # Also create immediate backup in archive (for quick recovery)
+        backup_file = archive_dir / f"{self.report_file.stem}.tex.backup"
         with open(backup_file, 'w', encoding='utf-8') as f:
             f.write(current_content)
-        print(f"  Created immediate backup: {backup_file.name}")
+        print(f"  Created immediate backup: archive/report_backups/{backup_file.name}")
         
         # Save updated report
         with open(self.report_file, 'w', encoding='utf-8') as f:
