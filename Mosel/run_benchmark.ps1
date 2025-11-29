@@ -58,3 +58,10 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "BENCHMARK COMPLETE" -ForegroundColor Cyan
 Write-Host "Results saved in: $resultsDir" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Next step: Run visualization generator" -ForegroundColor Yellow
+Write-Host "  python scripts/generate_visualizations.py" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Or run complete workflow:" -ForegroundColor Yellow
+Write-Host "  .\run_complete_workflow.ps1" -ForegroundColor Gray
+Write-Host ""
