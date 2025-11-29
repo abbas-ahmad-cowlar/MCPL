@@ -1081,8 +1081,9 @@ Runs local search from multiple diverse initial solutions.
 \begin{lstlisting}[language=Pascal]
 parameters
   DATA_FILE = "data/instance.dat"
-  NUM_STARTS = 10                  ! Number of random restarts
-  VERBOSE = false                  ! Detailed output per restart
+  N_STARTS = 10                    ! Number of random restarts
+  MAX_MOVES = 200                  ! LS iterations per start
+  BASE_SEED = 42                   ! Base random seed
 end-parameters
 \end{lstlisting}
 
