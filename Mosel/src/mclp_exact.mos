@@ -37,6 +37,7 @@ model "MCLP_Exact"
     DATA_FILE = "data/test_tiny.dat"  ! Default instance
     TIME_LIMIT = 3600                  ! Solver time limit (seconds)
     MIP_GAP = 0.01                     ! Optimality gap (1%)
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
     RELAX_Z = 1                        ! Relax z variables to [0,1] (recommended)
   end-parameters
 
@@ -57,13 +58,15 @@ model "MCLP_Exact"
     nI nJ BUDGET
   end-initializations
 
-  writeln("\n", "======================================================================")
-  writeln("MCLP EXACT MODEL - Compact Formulation")
-  writeln("======================================================================")
-  writeln("Instance: ", DATA_FILE)
-  writeln("Facilities: ", nI, ", Customers: ", nJ)
-  writeln("Budget: ", BUDGET)
-  writeln("======================================================================", "\n")
+  if VERBOSE >= 1 then
+    writeln("\n", "======================================================================")
+    writeln("MCLP EXACT MODEL - Compact Formulation")
+    writeln("======================================================================")
+    writeln("Instance: ", DATA_FILE)
+    writeln("Facilities: ", nI, ", Customers: ", nJ)
+    writeln("Budget: ", BUDGET)
+    writeln("======================================================================", "\n")
+  end-if
 
   !==================================================
   ! MAIN DECLARATIONS (with proper dimensions)
@@ -127,6 +130,10 @@ model "MCLP_Exact"
   ! DATA VALIDATION
   !==================================================
 
+  if VERBOSE >= 2 then
+    writeln("Validating instance data...")
+  end-if
+
   ! Check 1: All customers have at least one covering facility
   forall(j in CUSTOMERS) do
     if getsize(I_j(j)) = 0 then
@@ -160,13 +167,15 @@ model "MCLP_Exact"
   end-do
   coverage_density := total_arcs / (nI * nJ)
 
-  writeln("Instance Statistics:")
-  writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
-  writeln("  Total demand: ", strfmt(total_demand, 10, 2))
-  writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
-  writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%")
-  writeln("  Coverage arcs: ", total_arcs_I_j)
-  writeln("✓ Data validation passed\n")
+  if VERBOSE >= 1 then
+    writeln("Instance Statistics:")
+    writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
+    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+    writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
+    writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%")
+    writeln("  Coverage arcs: ", total_arcs_I_j)
+    writeln("✓ Data validation passed\n")
+  end-if
 
   !==================================================
   ! DECISION VARIABLES
@@ -189,13 +198,17 @@ model "MCLP_Exact"
       z(j) >= 0
       z(j) <= 1                        ! Equation (7): z[j] ∈ [0,1] (relaxed)
     end-do
-    writeln("Variable relaxation: z[j] ∈ [0,1] (continuous)")
+    if VERBOSE >= 1 then
+      writeln("Variable relaxation: z[j] ∈ [0,1] (continuous)")
+    end-if
   else
     ! Strict binary formulation
     forall(j in CUSTOMERS) do
       z(j) is_binary                   ! Equation (7): z[j] ∈ {0,1}
     end-do
-    writeln("Variable formulation: z[j] ∈ {0,1] (binary)")
+    if VERBOSE >= 1 then
+      writeln("Variable formulation: z[j] ∈ {0,1} (binary)")
+    end-if
   end-if
 
   !==================================================
@@ -225,6 +238,7 @@ model "MCLP_Exact"
   ! Total cost of open facilities must not exceed budget
   Budget_Constraint := sum(i in FACILITIES) COST(i) * y(i) <= BUDGET
 
+  if VERBOSE >= 1 then
     writeln("Model Statistics:")
     writeln("  Variables: ", nI, " (y) + ", nJ, " (z) = ", nI + nJ)
     writeln("  Binary variables: ", nI, " (y)")
@@ -236,6 +250,7 @@ model "MCLP_Exact"
     writeln("  Coverage constraints: ", nJ)
     writeln("  Budget constraint: 1")
     writeln("  Total constraints: ", nJ + 1, "\n")
+  end-if
 
   !==================================================
   ! SOLVER CONFIGURATION
@@ -245,15 +260,22 @@ model "MCLP_Exact"
   setparam("XPRS_MAXTIME", TIME_LIMIT)   ! Time limit
   setparam("XPRS_MIPRELSTOP", MIP_GAP)   ! Optimality gap
 
+  if VERBOSE >= 2 then
+    setparam("XPRS_VERBOSE", true)       ! Detailed solver output
+  else
+    setparam("XPRS_VERBOSE", false)
+  end-if
 
   !==================================================
   ! SOLVE MODEL
   !==================================================
 
+  if VERBOSE >= 1 then
     writeln("Starting optimization...")
     writeln("  Time limit: ", TIME_LIMIT, " seconds")
     writeln("  MIP gap: ", MIP_GAP * 100, "%")
     writeln("======================================================================")
+  end-if
 
   start_time := gettime
   maximize(Objective)
@@ -265,7 +287,9 @@ model "MCLP_Exact"
 
   solution_status := getprobstat
 
+  if VERBOSE >= 1 then
     writeln("======================================================================")
+  end-if
 
   declarations
     open_facilities: set of integer
@@ -310,6 +334,7 @@ model "MCLP_Exact"
     ! OUTPUT RESULTS
     !==================================================
 
+    if VERBOSE >= 1 then
       writeln("\nOBJECTIVE:")
       writeln("  Covered demand: ", strfmt(objective_value, 12, 2))
       writeln("  Best bound: ", strfmt(best_bound, 12, 2))
@@ -338,7 +363,12 @@ model "MCLP_Exact"
         write(" ", i)
       writeln("")
 
-    
+      if VERBOSE >= 2 then
+        writeln("\nFACILITY DETAILS:")
+        forall(i in open_facilities) do
+          writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
+                  ", covers ", getsize(J_i(i)), " customers")
+        end-do
 
         writeln("\nCOVERED CUSTOMERS:")
         forall(j in covered_customers) do
@@ -346,6 +376,7 @@ model "MCLP_Exact"
           writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
                   ", covered by ", num_covering, " facilities")
         end-do
+      end-if
     end-if
 
     writeln("\n", "======================================================================")
@@ -354,7 +385,8 @@ model "MCLP_Exact"
     ! SOLUTION VALIDATION
     !==================================================
 
-  
+    if VERBOSE >= 2 then
+      writeln("\nValidating solution...")
 
       ! Check budget feasibility
       if budget_used > BUDGET + 1e-6 then

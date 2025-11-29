@@ -34,6 +34,7 @@ model "MCLP_LocalSearch"
     INIT_METHOD = "greedy"             ! Initialization: greedy, cn, random
     MAX_MOVES = 200                    ! Maximum improvement iterations
     SEED = 42                          ! Random seed
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -78,6 +79,7 @@ model "MCLP_LocalSearch"
     recomputed_obj: real
   end-declarations
 
+  if VERBOSE >= 1 then
     writeln("\n", "======================================================================")
     writeln("MCLP LOCAL SEARCH")
     writeln("======================================================================")
@@ -86,6 +88,7 @@ model "MCLP_LocalSearch"
     writeln("Budget: ", BUDGET)
     writeln("Initialization: ", INIT_METHOD)
     writeln("======================================================================", "\n")
+  end-if
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -127,7 +130,9 @@ model "MCLP_LocalSearch"
 
   ! Initialize based on method
   if INIT_METHOD = "greedy" then
+    if VERBOSE >= 1 then
       writeln("Initializing with Greedy heuristic...")
+    end-if
 
     ! Run Greedy algorithm (inline simplified version)
     K := {}
@@ -163,7 +168,9 @@ model "MCLP_LocalSearch"
     end-do
 
   elif INIT_METHOD = "random" then
+    if VERBOSE >= 1 then
       writeln("Initializing with random solution...")
+    end-if
 
     ! Random initialization
     K := {}
@@ -217,11 +224,13 @@ model "MCLP_LocalSearch"
 
   budget_used := sum(i in K) COST(i)
 
+  if VERBOSE >= 1 then
     writeln("Initial Solution:")
     writeln("  Open facilities: ", getsize(K))
     writeln("  Objective: ", strfmt(objective, 10, 2))
     writeln("  Budget used: ", strfmt(budget_used, 10, 2), " / ", BUDGET)
     writeln("")
+  end-if
 
   !==================================================
   ! LOCAL SEARCH - DELTA EVALUATION FUNCTIONS
@@ -337,8 +346,10 @@ model "MCLP_LocalSearch"
   iteration := 0
   improvements := 0
 
+  if VERBOSE >= 1 then
     writeln("Starting Local Search...")
     writeln("----------------------------------------------------------------------")
+  end-if
 
   while (iteration < MAX_MOVES) do
     iteration += 1
@@ -398,6 +409,9 @@ model "MCLP_LocalSearch"
 
     ! If no improving move found, terminate
     if not found_improvement or best_delta <= 1e-6 then
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", iteration, "] No improving move found - local optimum reached")
+      end-if
       break
     end-if
 
@@ -405,12 +419,27 @@ model "MCLP_LocalSearch"
     if best_move_type = "close" then
       apply_close(best_i)
       improvements += 1
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", strfmt(iteration, 3), "] CLOSE facility ", best_i,
+                ": delta=", strfmt(best_delta, 8, 2),
+                ", obj=", strfmt(objective, 10, 2))
+      end-if
     elif best_move_type = "open" then
       apply_open(best_i)
       improvements += 1
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", strfmt(iteration, 3), "] OPEN facility ", best_i,
+                ": delta=", strfmt(best_delta, 8, 2),
+                ", obj=", strfmt(objective, 10, 2))
+      end-if
     elif best_move_type = "swap" then
       apply_swap(best_i, best_j)
       improvements += 1
+      if VERBOSE >= 2 then
+        writeln("  [Iter ", strfmt(iteration, 3), "] SWAP (", best_i, " → ", best_j, ")",
+                ": delta=", strfmt(best_delta, 8, 2),
+                ", obj=", strfmt(objective, 10, 2))
+      end-if
     end-if
   end-do
 
@@ -426,6 +455,7 @@ model "MCLP_LocalSearch"
   demand_pct := objective / total_demand * 100
   budget_pct := budget_used / BUDGET * 100
 
+  if VERBOSE >= 1 then
     writeln("----------------------------------------------------------------------")
     writeln("\nLOCAL SEARCH SOLUTION:")
     writeln("  Iterations: ", iteration)
@@ -446,6 +476,7 @@ model "MCLP_LocalSearch"
     forall(i in K)
       write(" ", i)
     writeln("")
+  end-if
 
   writeln("\n", "======================================================================")
 
@@ -453,5 +484,31 @@ model "MCLP_LocalSearch"
   ! SOLUTION VALIDATION
   !==================================================
 
+  if VERBOSE >= 2 then
+    writeln("\nValidating solution...")
+
+    ! Recompute objective
+    recomputed_obj := 0.0
+    forall(j in CUSTOMERS) do
+      if covered_by_count(j) > 0 then
+        recomputed_obj += DEMAND(j)
+      end-if
+    end-do
+
+    if abs(recomputed_obj - objective) < 0.01 then
+      writeln("✓ Objective value verified: ", strfmt(objective, 10, 2))
+    else
+      writeln("WARNING: Objective mismatch (", objective, " vs ", recomputed_obj, ")")
+    end-if
+
+    ! Check budget
+    if budget_used <= BUDGET + 0.01 then
+      writeln("✓ Budget constraint satisfied")
+    else
+      writeln("ERROR: Budget violated (", budget_used, " > ", BUDGET, ")")
+    end-if
+
+    writeln("✓ Solution validation complete\n")
+  end-if
 
 end-model
