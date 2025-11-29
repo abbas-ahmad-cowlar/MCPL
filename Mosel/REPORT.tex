@@ -1052,7 +1052,14 @@ All six algorithms are implemented as standalone Mosel programs (\texttt{.mos} f
 \begin{itemize}
   \item \textbf{Description}: Improvement heuristic with 1-flip and swap neighborhoods.
   \item \textbf{Usage}: \texttt{mosel exec mclp\_local\_search.mos "DATA\_FILE=data/L1.dat"}
-  \item \textbf{Key Parameters}: \texttt{MAX\_ITER} (default 1000), \texttt{INIT\_METHOD} (default "greedy").
+  \item \textbf{Key Parameters}: \texttt{MAX\_MOVES} (default 200), \texttt{INIT\_METHOD} (default "greedy").
+\end{itemize}
+
+\subsubsection{Multi-Start Local Search: \texttt{mclp\_multistart.mos}}
+\begin{itemize}
+  \item \textbf{Description}: Runs local search from multiple diverse initial solutions.
+  \item \textbf{Usage}: \texttt{mosel exec mclp\_multistart.mos "DATA\_FILE=data/L1.dat"}
+  \item \textbf{Key Parameters}: \texttt{N\_STARTS} (default 10), \texttt{MAX\_MOVES} (default 200), \texttt{BASE\_SEED} (default 42).
 \end{itemize}
 
 \subsubsection{Tabu Search: \texttt{mclp\_tabu\_search.mos}}
