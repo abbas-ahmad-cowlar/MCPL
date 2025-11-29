@@ -16,7 +16,7 @@ Write-Host ""
 # Step 1: Run benchmarks
 Write-Host "STEP 1: Running benchmarks..." -ForegroundColor Yellow
 Write-Host "----------------------------------------" -ForegroundColor Yellow
-& .\run_benchmark.ps1
+& .\scripts\run_benchmark.ps1
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: Benchmark execution failed!" -ForegroundColor Red
