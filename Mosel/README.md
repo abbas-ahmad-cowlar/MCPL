@@ -27,17 +27,26 @@ MCLP_Optimization_Suite/
 │   └── XXL1.dat                # Massive (1000 facilities, 5000 customers)
 ├── scripts/                    # Utility Scripts
 │   ├── generate_instance.py    # Generate new random instances
+│   ├── generate_visualizations.py  # Generate figures and performance tables
 │   └── convert_json_to_mosel.py # Convert JSON data to Mosel format
 ├── pseudocode/                 # Algorithm Documentation
 │   ├── greedy_pseudocode.txt
 │   ├── closest_neighbor_pseudocode.txt
 │   ├── local_search_pseudocode.txt
 │   └── tabu_search_pseudocode.txt
-├── results/                    # Benchmark Output Logs
-├── SUMMARY.md                   # Executive Summary
-├── REPORT.tex           # 📄 FINAL REPORT (LaTeX Source)
-├── run_benchmark.ps1           # Main Execution Script
-└── summarize_results.ps1       # Result Analysis Script
+├── results_complete/           # Latest Benchmark Output Logs
+├── figures/                    # Generated Figures and Tables
+│   ├── runtime_vs_size.pdf
+│   ├── solution_quality_vs_size.pdf
+│   ├── runtime_comparison.pdf
+│   └── performance_table.tex
+├── SCIENTIFIC_REPORT.tex       # 📄 COMPREHENSIVE REPORT (LaTeX Source)
+├── run_complete_workflow.ps1   # 🚀 COMPLETE WORKFLOW (Recommended - runs everything)
+├── run_benchmark.ps1           # Benchmark Execution Script (standalone)
+├── scripts/
+│   ├── generate_visualizations.py  # Result Analysis & Visualization Script
+│   └── update_report_tables.py    # Auto-updates report with latest results
+└── archive/                    # Archived deprecated files (see archive/README.md)
 ```
 
 ## 🚀 Quick Start
@@ -48,27 +57,46 @@ MCLP_Optimization_Suite/
 2.  **Python 3.8+** (for data generation scripts).
 3.  **PowerShell** (for execution scripts).
 
-### Running the Full Benchmark
+### Complete Workflow (Recommended)
 
-To execute the complete benchmark suite across all algorithms and datasets:
+To run benchmarks, generate visualizations, update the report, and compile PDF:
+
+```powershell
+.\run_complete_workflow.ps1 -CompileReport
+```
+
+This single command will:
+1. Run all benchmarks (all 6 algorithms on all 9 datasets)
+2. Generate all figures and performance tables
+3. Automatically update `SCIENTIFIC_REPORT.tex` with latest results
+4. Compile the PDF report (if LaTeX is installed)
+
+**Without PDF compilation:**
+```powershell
+.\run_complete_workflow.ps1
+```
+
+See `WORKFLOW_SUMMARY.md` for detailed documentation.
+
+### Running Benchmarks Only
+
+To run only the benchmarks (without visualization/report updates):
 
 ```powershell
 .\run_benchmark.ps1
 ```
 
-This script will:
+This saves results to `results_complete/` directory.
 
-1.  Execute all 6 algorithms on all 9 datasets (S1 through XXL1).
-2.  Apply a 600-second time limit for the Exact solver on large instances.
-3.  Save detailed logs to the `results/` directory.
+### Generating Visualizations Only
 
-### Analyzing Results
-
-To generate a summary table of the benchmark performance:
+To generate figures and tables from existing results:
 
 ```powershell
-.\summarize_results.ps1
+python scripts/generate_visualizations.py
 ```
+
+This creates figures in `figures/` directory.
 
 ## 🔬 Algorithms Implemented
 

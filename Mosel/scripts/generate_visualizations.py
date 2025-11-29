@@ -20,7 +20,7 @@ plt.rcParams['font.size'] = 10
 plt.rcParams['font.family'] = 'serif'
 
 class MCLPVisualizer:
-    def __init__(self, results_dir='results', output_dir='figures'):
+    def __init__(self, results_dir='results_complete', output_dir='figures'):
         self.results_dir = Path(results_dir)
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
@@ -42,35 +42,57 @@ class MCLPVisualizer:
                 
             dataset, algorithm = match.groups()
             
-            # Read file content
-            try:
-                content = file.read_text(encoding='utf-8', errors='ignore')
-            except:
+            # Read file content - try multiple encodings (including UTF-16)
+            content = None
+            for encoding in ['utf-16-le', 'utf-16', 'utf-8', 'utf-8-sig', 'latin-1', 'cp1252']:
+                try:
+                    content = file.read_text(encoding=encoding, errors='ignore')
+                    # Check if we got valid text (not just null bytes)
+                    if content and len(content.strip()) > 0:
+                        break
+                except:
+                    continue
+            if content is None or len(content.strip()) == 0:
                 continue
             
-            # Extract objective value
+            # Extract objective value (try multiple patterns)
+            # Patterns must handle variable whitespace
             objective = None
             for pattern in [
-                r'Covered demand:\s+([\d\.]+)',
-                r'Final objective:\s+([\d\.]+)',
-                r'Total demand covered:\s+([\d\.]+)',
-                r'Objective:\s+([\d\.]+)'
+                r'Covered demand:\s+([\d\.]+)',  # Exact: "Covered demand:      7646.00"
+                r'Final objective:\s+([\d\.]+)\s+/\s+[\d\.]+',  # Local/Tabu: "Final objective:    7646.00 /    9749.00"
+                r'Total demand covered:\s+([\d\.]+)\s+/\s+[\d\.]+',  # Greedy/Closest: "Total demand covered:    7646.00 /    9749.00"
+                r'Total demand covered:\s+([\d\.]+)',  # Fallback without ratio
+                r'Best solution found:\s*\n\s*Objective:\s+([\d\.]+)',  # MultiStart: "Best solution found:\n  Objective:    7646.00"
+                r'Objective:\s+([\d\.]+)\s+/\s+[\d\.]+',  # MultiStart/Tabu summary format
+                r'Objective:\s+([\d\.]+)',  # Initial objective or fallback
             ]:
-                match = re.search(pattern, content)
+                match = re.search(pattern, content, re.MULTILINE)
                 if match:
-                    objective = float(match.group(1))
-                    break
+                    try:
+                        objective = float(match.group(1))
+                        break
+                    except:
+                        continue
             
-            # Extract runtime
+            # Extract runtime (try multiple patterns)
+            # Patterns must handle "seconds" suffix and variable whitespace
             runtime = None
             for pattern in [
-                r'Solve time:\s+([\d\.]+)',
-                r'Runtime:\s+([\d\.]+)'
+                r'Runtime:\s+([\d\.]+)',  # "Runtime:   0.0004 seconds" or "Runtime:   0.3571 seconds"
+                r'Solve time:\s+([\d\.]+)',  # "Solve time:     0.03 seconds"
+                r'Total runtime:\s+([\d\.]+)',  # MultiStart: "Total runtime:     0.01 seconds"
+                r'Runtime:\s+([\d\.]+)\s+seconds',  # Explicit with seconds
+                r'Solve time:\s+([\d\.]+)\s+seconds',  # Explicit with seconds
+                r'Total runtime:\s+([\d\.]+)\s+seconds',  # MultiStart explicit
             ]:
                 match = re.search(pattern, content)
                 if match:
-                    runtime = float(match.group(1))
-                    break
+                    try:
+                        runtime = float(match.group(1))
+                        break
+                    except:
+                        continue
             
             # Extract instance size info
             facilities = customers = None
@@ -112,6 +134,14 @@ class MCLPVisualizer:
         if 'GAP%' not in self.data.columns:
             self.calculate_gaps()
         
+        # Get all unique algorithms and datasets
+        all_algorithms = sorted(self.data['Algorithm'].unique())
+        all_datasets = sorted(self.data['Dataset'].unique())
+        
+        # Create a complete index with all dataset-algorithm combinations
+        complete_index = pd.MultiIndex.from_product([all_datasets, all_algorithms], 
+                                                     names=['Dataset', 'Algorithm'])
+        
         # Pivot table: Datasets x Algorithms
         table = self.data.pivot_table(
             index='Dataset',
@@ -119,6 +149,15 @@ class MCLPVisualizer:
             values=['Objective', 'GAP%'],
             aggfunc='first'
         )
+        
+        # Reindex to ensure all algorithms are present (fill missing with NaN)
+        if isinstance(table.columns, pd.MultiIndex):
+            # Create full MultiIndex with all algorithms
+            full_columns = pd.MultiIndex.from_product([
+                ['Objective', 'GAP%'],
+                all_algorithms
+            ])
+            table = table.reindex(columns=full_columns)
         
         # Save as CSV for LaTeX
         table.to_csv(self.output_dir / 'performance_table.csv')
@@ -147,11 +186,14 @@ class MCLPVisualizer:
                 f.write(f'{idx} & ')
                 row_data = []
                 for alg in table.columns.levels[1]:
-                    obj = table.loc[idx, ('Objective', alg)]
-                    gap = table.loc[idx, ('GAP%', alg)]
-                    if pd.notna(obj):
-                        row_data.append(f'{obj:.0f} & {gap:.1f}\\%')
-                    else:
+                    try:
+                        obj = table.loc[idx, ('Objective', alg)]
+                        gap = table.loc[idx, ('GAP%', alg)]
+                        if pd.notna(obj):
+                            row_data.append(f'{obj:.0f} & {gap:.1f}\\%')
+                        else:
+                            row_data.append('N/A & N/A')
+                    except (KeyError, IndexError):
                         row_data.append('N/A & N/A')
                 f.write(' & '.join(row_data) + ' \\\\\n')
             
@@ -159,7 +201,7 @@ class MCLPVisualizer:
             f.write('\\end{tabular}\n')
             f.write('\\end{table}\n')
         
-        print(f"✓ Created performance table: {self.output_dir / 'performance_table.tex'}")
+        print(f"Created performance table: {self.output_dir / 'performance_table.tex'}")
         return table
     
     def plot_runtime_comparison(self):
@@ -204,7 +246,7 @@ class MCLPVisualizer:
         plt.savefig(self.output_dir / 'runtime_comparison.png', bbox_inches='tight')
         plt.close()
         
-        print(f"✓ Created runtime comparison: {self.output_dir / 'runtime_comparison.pdf'}")
+        print(f"Created runtime comparison: {self.output_dir / 'runtime_comparison.pdf'}")
     
     def plot_solution_quality_vs_size(self):
         """Plot objective value vs instance size"""
@@ -237,7 +279,7 @@ class MCLPVisualizer:
         plt.savefig(self.output_dir / 'solution_quality_vs_size.png', bbox_inches='tight')
         plt.close()
         
-        print(f"✓ Created solution quality chart: {self.output_dir / 'solution_quality_vs_size.pdf'}")
+        print(f"Created solution quality chart: {self.output_dir / 'solution_quality_vs_size.pdf'}")
     
     def plot_runtime_vs_size(self):
         """Plot runtime vs instance size (log scale)"""
@@ -271,7 +313,7 @@ class MCLPVisualizer:
         plt.savefig(self.output_dir / 'runtime_vs_size.png', bbox_inches='tight')
         plt.close()
         
-        print(f"✓ Created runtime scalability chart: {self.output_dir / 'runtime_vs_size.pdf'}")
+        print(f"Created runtime scalability chart: {self.output_dir / 'runtime_vs_size.pdf'}")
     
     def create_instance_characteristics_table(self):
         """Create instance characteristics table"""
@@ -301,7 +343,7 @@ class MCLPVisualizer:
             f.write('\\end{tabular}\n')
             f.write('\\end{table}\n')
         
-        print(f"✓ Created instance characteristics table: {self.output_dir / 'instance_characteristics.tex'}")
+        print(f"Created instance characteristics table: {self.output_dir / 'instance_characteristics.tex'}")
     
     def generate_all(self):
         """Generate all visualizations and tables"""
@@ -332,8 +374,8 @@ class MCLPVisualizer:
         self.plot_runtime_vs_size()
         
         print("\n" + "="*60)
-        print("✓ All visualizations generated successfully!")
-        print(f"✓ Output directory: {self.output_dir.absolute()}")
+        print("All visualizations generated successfully!")
+        print(f"Output directory: {self.output_dir.absolute()}")
         print("="*60)
         print("\nGenerated files:")
         for file in sorted(self.output_dir.glob('*')):
