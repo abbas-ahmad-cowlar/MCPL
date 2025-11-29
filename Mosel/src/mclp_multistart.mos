@@ -33,7 +33,6 @@ model "MCLP_Multi_Start"
     N_STARTS = 10                      ! Number of starts
     MAX_MOVES = 200                    ! LS iterations per start
     BASE_SEED = 42                     ! Base random seed
-    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -108,16 +107,14 @@ model "MCLP_Multi_Start"
     ratio: real
   end-declarations
 
-  if VERBOSE >= 1 then
-    writeln("\n", "======================================================================")
-    writeln("MCLP MULTI-START LOCAL SEARCH")
-    writeln("======================================================================")
-    writeln("Instance: ", DATA_FILE)
-    writeln("Facilities: ", nI, ", Customers: ", nJ)
-    writeln("Budget: ", BUDGET)
-    writeln("Number of starts: ", N_STARTS)
-    writeln("======================================================================", "\n")
-  end-if
+  writeln("\n", "======================================================================")
+  writeln("MCLP MULTI-START LOCAL SEARCH")
+  writeln("======================================================================")
+  writeln("Instance: ", DATA_FILE)
+  writeln("Facilities: ", nI, ", Customers: ", nJ)
+  writeln("Budget: ", BUDGET)
+  writeln("Number of starts: ", N_STARTS)
+  writeln("======================================================================", "\n")
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -202,11 +199,9 @@ model "MCLP_Multi_Start"
       perturb := false
     end-if
 
-    if VERBOSE >= 1 then
-      writeln("\n", "----------------------------------------------------------------------")
-      writeln("Start ", start_idx, " / ", N_STARTS, " (", init_method, ")")
-      writeln("----------------------------------------------------------------------")
-    end-if
+    writeln("\n", "----------------------------------------------------------------------")
+    writeln("Start ", start_idx, " / ", N_STARTS, " (", init_method, ")")
+    writeln("----------------------------------------------------------------------")
 
     start_time := gettime
 
@@ -404,10 +399,6 @@ model "MCLP_Multi_Start"
 
     initial_obj := objective
 
-    if VERBOSE >= 2 then
-      writeln("  Initial: obj=", strfmt(initial_obj, 10, 2),
-              ", facilities=", getsize(K))
-    end-if
 
     ! ================================================
     ! LOCAL SEARCH
@@ -581,12 +572,10 @@ model "MCLP_Multi_Start"
       global_best_K := K
     end-if
 
-    if VERBOSE >= 1 then
-      writeln("  Final: obj=", strfmt(final_obj, 10, 2),
-              ", impr=", strfmt(improvement, 10, 2),
-              ", moves=", improvements,
-              ", time=", strfmt(runtime, 6, 2), "s")
-    end-if
+    writeln("  Final: obj=", strfmt(final_obj, 10, 2),
+            ", impr=", strfmt(improvement, 10, 2),
+            ", moves=", improvements,
+            ", time=", strfmt(runtime, 6, 2), "s")
   end-do
 
   overall_runtime := gettime - overall_start_time
@@ -595,36 +584,34 @@ model "MCLP_Multi_Start"
   ! OUTPUT RESULTS
   !==================================================
 
-  if VERBOSE >= 1 then
-    writeln("\n", "======================================================================")
-    writeln("MULTI-START SUMMARY")
-    writeln("======================================================================")
+  writeln("\n", "======================================================================")
+  writeln("MULTI-START SUMMARY")
+  writeln("======================================================================")
 
-    ! Compute statistics
-    avg_initial := sum(s in 1..N_STARTS) start_results(s).initial_obj / N_STARTS
-    avg_final := sum(s in 1..N_STARTS) start_results(s).final_obj / N_STARTS
-    avg_improvement := sum(s in 1..N_STARTS) start_results(s).improvement / N_STARTS
+  ! Compute statistics
+  avg_initial := sum(s in 1..N_STARTS) start_results(s).initial_obj / N_STARTS
+  avg_final := sum(s in 1..N_STARTS) start_results(s).final_obj / N_STARTS
+  avg_improvement := sum(s in 1..N_STARTS) start_results(s).improvement / N_STARTS
 
-    writeln("Total starts: ", N_STARTS)
-    writeln("Total runtime: ", strfmt(overall_runtime, 8, 2), " seconds")
-    writeln("Avg initial objective: ", strfmt(avg_initial, 10, 2))
-    writeln("Avg final objective: ", strfmt(avg_final, 10, 2))
-    writeln("Avg improvement: ", strfmt(avg_improvement, 10, 2))
-    writeln("\nBest solution found:")
-    writeln("  Objective: ", strfmt(global_best_obj, 10, 2),
-            " / ", strfmt(total_demand, 10, 2),
-            " (", strfmt(global_best_obj/total_demand*100, 5, 1), "%)")
-    writeln("  Open facilities: ", getsize(global_best_K), " / ", nI)
-    writeln("  Budget used: ", strfmt(sum(i in global_best_K) COST(i), 10, 2),
-            " / ", BUDGET)
+  writeln("Total starts: ", N_STARTS)
+  writeln("Total runtime: ", strfmt(overall_runtime, 8, 2), " seconds")
+  writeln("Avg initial objective: ", strfmt(avg_initial, 10, 2))
+  writeln("Avg final objective: ", strfmt(avg_final, 10, 2))
+  writeln("Avg improvement: ", strfmt(avg_improvement, 10, 2))
+  writeln("\nBest solution found:")
+  writeln("  Objective: ", strfmt(global_best_obj, 10, 2),
+          " / ", strfmt(total_demand, 10, 2),
+          " (", strfmt(global_best_obj/total_demand*100, 5, 1), "%)")
+  writeln("  Open facilities: ", getsize(global_best_K), " / ", nI)
+  writeln("  Budget used: ", strfmt(sum(i in global_best_K) COST(i), 10, 2),
+          " / ", BUDGET)
 
-    writeln("\nOPEN FACILITIES:")
-    write(" ")
-    forall(i in global_best_K) do
-      write(" ", i)
-    end-do
-    writeln("")
-  end-if
+  writeln("\nOPEN FACILITIES:")
+  write(" ")
+  forall(i in global_best_K) do
+    write(" ", i)
+  end-do
+  writeln("")
 
   writeln("\n", "======================================================================")
 

@@ -27,7 +27,6 @@ model "MCLP_Greedy"
   parameters
     DATA_FILE = "data/test_tiny.dat"  ! Default instance
     SEED = 42                          ! Random seed (for tie-breaking)
-    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -47,15 +46,13 @@ model "MCLP_Greedy"
     nI nJ BUDGET
   end-initializations
 
-  if VERBOSE >= 1 then
-    writeln("\n", "======================================================================")
-    writeln("MCLP GREEDY HEURISTIC")
-    writeln("======================================================================")
-    writeln("Instance: ", DATA_FILE)
-    writeln("Facilities: ", nI, ", Customers: ", nJ)
-    writeln("Budget: ", BUDGET)
-    writeln("======================================================================", "\n")
-  end-if
+  writeln("\n", "======================================================================")
+  writeln("MCLP GREEDY HEURISTIC")
+  writeln("======================================================================")
+  writeln("Instance: ", DATA_FILE)
+  writeln("Facilities: ", nI, ", Customers: ", nJ)
+  writeln("Budget: ", BUDGET)
+  writeln("======================================================================", "\n")
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -116,14 +113,6 @@ model "MCLP_Greedy"
     coverage_pct: real
     demand_pct: real
     budget_pct: real
-    customers_covered: integer
-    covering_facilities: integer
-    violations: integer
-    covering_count: integer
-    recomputed_obj: real
-    
-    ! Temporary variables
-    new_covered_count: integer
   end-declarations
 
   ! Compute instance statistics
@@ -133,13 +122,11 @@ model "MCLP_Greedy"
   total_arcs := sum(i in FACILITIES) getsize(J_i(i))
   coverage_density := total_arcs / (nI * nJ)
 
-  if VERBOSE >= 1 then
-    writeln("Instance Statistics:")
-    writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
-    writeln("  Total demand: ", strfmt(total_demand, 10, 2))
-    writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
-    writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%\n")
-  end-if
+  writeln("Instance Statistics:")
+  writeln("  Total facility cost: ", strfmt(total_facility_cost, 10, 2))
+  writeln("  Total demand: ", strfmt(total_demand, 10, 2))
+  writeln("  Budget ratio: ", strfmt(BUDGET/total_facility_cost*100, 6, 2), "%")
+  writeln("  Coverage density: ", strfmt(coverage_density*100, 6, 2), "%\n")
 
   !==================================================
   ! GREEDY ALGORITHM
@@ -153,10 +140,8 @@ model "MCLP_Greedy"
 
   start_time := gettime
 
-  if VERBOSE >= 1 then
-    writeln("Starting Greedy Construction...")
-    writeln("----------------------------------------------------------------------")
-  end-if
+  writeln("Starting Greedy Construction...")
+  writeln("----------------------------------------------------------------------")
 
   ! Main greedy loop
   while (budget_used < BUDGET) do
@@ -209,14 +194,6 @@ model "MCLP_Greedy"
     covered_customers += J_i(best_facility)
     budget_used += COST(best_facility)
 
-    if VERBOSE >= 2 then
-      new_covered_count := getsize(J_i(best_facility) - covered_customers)
-      writeln("  [Iter ", strfmt(iteration, 2), "] Open facility ", strfmt(best_facility, 3),
-              ": cost=", strfmt(COST(best_facility), 6, 2),
-              ", gain=", strfmt(best_gain, 8, 2),
-              ", ratio=", strfmt(best_gain_per_cost, 8, 2),
-              ", new_cust=", new_covered_count)
-    end-if
   end-do
 
   solve_time := gettime - start_time
@@ -236,43 +213,26 @@ model "MCLP_Greedy"
   ! OUTPUT RESULTS
   !==================================================
 
-  if VERBOSE >= 1 then
-    writeln("----------------------------------------------------------------------")
-    writeln("\nGREEDY SOLUTION:")
-    writeln("  Iterations: ", iteration)
-    writeln("  Open facilities: ", num_open, " / ", nI)
-    writeln("  Covered customers: ", num_covered, " / ", nJ,
-            " (", strfmt(coverage_pct, 5, 1), "%)")
-    writeln("  Budget used: ", strfmt(budget_used, 10, 2),
-            " / ", strfmt(BUDGET, 10, 2),
-            " (", strfmt(budget_pct, 5, 1), "%)")
-    writeln("  Total demand covered: ", strfmt(objective_value, 10, 2),
-            " / ", strfmt(total_demand, 10, 2),
-            " (", strfmt(demand_pct, 5, 1), "%)")
-    writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
+  writeln("----------------------------------------------------------------------")
+  writeln("\nGREEDY SOLUTION:")
+  writeln("  Iterations: ", iteration)
+  writeln("  Open facilities: ", num_open, " / ", nI)
+  writeln("  Covered customers: ", num_covered, " / ", nJ,
+          " (", strfmt(coverage_pct, 5, 1), "%)")
+  writeln("  Budget used: ", strfmt(budget_used, 10, 2),
+          " / ", strfmt(BUDGET, 10, 2),
+          " (", strfmt(budget_pct, 5, 1), "%)")
+  writeln("  Total demand covered: ", strfmt(objective_value, 10, 2),
+          " / ", strfmt(total_demand, 10, 2),
+          " (", strfmt(demand_pct, 5, 1), "%)")
+  writeln("  Runtime: ", strfmt(solve_time, 8, 4), " seconds")
 
-    writeln("\nOPEN FACILITIES:")
-    write(" ")
-    forall(i in open_facilities)
-      write(" ", i)
-    writeln("")
-  end-if
+  writeln("\nOPEN FACILITIES:")
+  write(" ")
+  forall(i in open_facilities)
+    write(" ", i)
+  writeln("")
 
-  if VERBOSE >= 2 then
-    writeln("\nFACILITY DETAILS:")
-    forall(i in open_facilities) do
-      customers_covered := getsize(J_i(i) * covered_customers)
-      writeln("  Facility ", strfmt(i, 3), ": cost=", strfmt(COST(i), 8, 2),
-              ", covers ", customers_covered, " customers")
-    end-do
-
-    writeln("\nCOVERED CUSTOMERS:")
-    forall(j in covered_customers) do
-      covering_facilities := getsize(I_j(j) * open_facilities)
-      writeln("  Customer ", strfmt(j, 3), ": demand=", strfmt(DEMAND(j), 8, 2),
-              ", covered by ", covering_facilities, " facilities")
-    end-do
-  end-if
 
   writeln("\n", "======================================================================")
 
@@ -280,42 +240,5 @@ model "MCLP_Greedy"
   ! SOLUTION VALIDATION
   !==================================================
 
-  if VERBOSE >= 2 then
-    writeln("\nValidating solution...")
-
-    ! Check budget feasibility
-    if budget_used > BUDGET + 0.001 then
-      writeln("ERROR: Budget constraint violated!")
-      writeln("  Used: ", budget_used, ", Budget: ", BUDGET)
-    else
-      writeln("✓ Budget constraint satisfied")
-    end-if
-
-    ! Check coverage consistency
-    violations := 0
-    forall(j in covered_customers) do
-      covering_count := sum(i in I_j(j)) if(i in open_facilities, 1, 0)
-      if covering_count < 1 then
-        writeln("ERROR: Customer ", j, " marked covered but no facility open!")
-        violations += 1
-      end-if
-    end-do
-
-    if violations = 0 then
-      writeln("✓ All coverage relationships valid")
-    else
-      writeln("ERROR: ", violations, " coverage violations")
-    end-if
-
-    ! Recompute objective
-    recomputed_obj := sum(j in covered_customers) DEMAND(j)
-    if abs(recomputed_obj - objective_value) < 0.001 then
-      writeln("✓ Objective value verified")
-    else
-      writeln("WARNING: Objective mismatch (", objective_value, " vs ", recomputed_obj, ")")
-    end-if
-
-    writeln("✓ Solution validation complete\n")
-  end-if
 
 end-model
