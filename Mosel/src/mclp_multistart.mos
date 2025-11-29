@@ -33,6 +33,7 @@ model "MCLP_Multi_Start"
     N_STARTS = 10                      ! Number of starts
     MAX_MOVES = 200                    ! LS iterations per start
     BASE_SEED = 42                     ! Base random seed
+    VERBOSE = 1                        ! Output level (0=quiet, 1=normal, 2=detailed)
   end-parameters
 
   !==================================================
@@ -107,6 +108,7 @@ model "MCLP_Multi_Start"
     ratio: real
   end-declarations
 
+  if VERBOSE >= 1 then
     writeln("\n", "======================================================================")
     writeln("MCLP MULTI-START LOCAL SEARCH")
     writeln("======================================================================")
@@ -115,6 +117,7 @@ model "MCLP_Multi_Start"
     writeln("Budget: ", BUDGET)
     writeln("Number of starts: ", N_STARTS)
     writeln("======================================================================", "\n")
+  end-if
 
   !==================================================
   ! MAIN DECLARATIONS
@@ -199,9 +202,11 @@ model "MCLP_Multi_Start"
       perturb := false
     end-if
 
+    if VERBOSE >= 1 then
       writeln("\n", "----------------------------------------------------------------------")
       writeln("Start ", start_idx, " / ", N_STARTS, " (", init_method, ")")
       writeln("----------------------------------------------------------------------")
+    end-if
 
     start_time := gettime
 
@@ -399,6 +404,10 @@ model "MCLP_Multi_Start"
 
     initial_obj := objective
 
+    if VERBOSE >= 2 then
+      writeln("  Initial: obj=", strfmt(initial_obj, 10, 2),
+              ", facilities=", getsize(K))
+    end-if
 
     ! ================================================
     ! LOCAL SEARCH
@@ -572,10 +581,12 @@ model "MCLP_Multi_Start"
       global_best_K := K
     end-if
 
+    if VERBOSE >= 1 then
       writeln("  Final: obj=", strfmt(final_obj, 10, 2),
               ", impr=", strfmt(improvement, 10, 2),
               ", moves=", improvements,
               ", time=", strfmt(runtime, 6, 2), "s")
+    end-if
   end-do
 
   overall_runtime := gettime - overall_start_time
@@ -584,6 +595,7 @@ model "MCLP_Multi_Start"
   ! OUTPUT RESULTS
   !==================================================
 
+  if VERBOSE >= 1 then
     writeln("\n", "======================================================================")
     writeln("MULTI-START SUMMARY")
     writeln("======================================================================")
@@ -612,6 +624,7 @@ model "MCLP_Multi_Start"
       write(" ", i)
     end-do
     writeln("")
+  end-if
 
   writeln("\n", "======================================================================")
 
