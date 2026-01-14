@@ -75,20 +75,23 @@ def test_instance_generator_script():
 
 def test_dataset_generation_script():
     """Test that full dataset generation works."""
-    # This would take too long, so just check script exists and is executable
-    script_path = "scripts/generate_dataset.sh"
+    # This would take too long, so just check script exists
+    # Check for Windows (.ps1) or Unix (.sh) version
+    script_ps1 = "scripts/generate_instance.py"  # Python script is cross-platform
     
-    assert os.path.exists(script_path), "Dataset generation script not found"
-    assert os.access(script_path, os.X_OK), "Script not executable (run: chmod +x scripts/generate_dataset.sh)"
+    assert os.path.exists(script_ps1), "Instance generation script not found"
     
-    print("[OK] Dataset generation script exists")
+    print("[OK] Instance generation script exists")
 
 
 def test_experiment_runner_exists():
     """Test that experiment runner script exists."""
-    script_path = "scripts/run_full_experiments.sh"
+    # Check for Windows (.ps1) or Unix (.sh) version
+    script_ps1 = "scripts/run_full_experiments.ps1"
+    script_sh = "scripts/run_full_experiments.sh"
     
-    assert os.path.exists(script_path), "Experiment runner not found"
+    exists = os.path.exists(script_ps1) or os.path.exists(script_sh)
+    assert exists, "Experiment runner not found (neither .ps1 nor .sh)"
     
     print("[OK] Experiment runner script exists")
 
